@@ -1,7 +1,9 @@
 const Booking = require('../models/Booking');
 const DailyLimit = require('../models/DailyLimit');
+const User = require('../models/User');
 const { validationResult } = require('express-validator');
 const { generateBookingQrDataUrl } = require('../utils/qr');
+const { sendBookingConfirmationEmail } = require('../utils/mailer');
 const {
   formatDateKey,
   getTodayDateKey,
@@ -30,6 +32,22 @@ const ensureBookingQr = async (booking) => {
   booking.qrCode = await generateBookingQrDataUrl(booking);
   await booking.save();
   return booking;
+};
+
+const applyEmailStatusToBooking = async (booking, delivery, fallbackError = '') => {
+  if (delivery?.delivered) {
+    booking.confirmationEmailStatus = 'sent';
+    booking.confirmationEmailSentAt = new Date();
+    booking.confirmationEmailLastError = undefined;
+  } else if (delivery?.simulated) {
+    booking.confirmationEmailStatus = 'simulated';
+    booking.confirmationEmailLastError = delivery?.message || 'SMTP not configured.';
+  } else {
+    booking.confirmationEmailStatus = 'failed';
+    booking.confirmationEmailLastError = delivery?.message || fallbackError || 'Email delivery failed.';
+  }
+
+  await booking.save();
 };
 
 const createBooking = async (req, res) => {
@@ -111,11 +129,29 @@ const createBooking = async (req, res) => {
       console.error(`[BookingQR] Failed for booking ${booking._id}: ${qrError.message}`);
     }
 
+    const owner = await User.findById(req.user.id).select('name email');
+    let emailDelivery = { delivered: false, simulated: false, message: 'No email found for this user.' };
+
+    if (owner?.email) {
+      emailDelivery = await sendBookingConfirmationEmail({
+        to: owner.email,
+        name: owner.name || booking.headDevoteeName,
+        booking,
+        qrCode: booking.qrCode
+      });
+      await applyEmailStatusToBooking(booking, emailDelivery);
+    } else {
+      booking.confirmationEmailStatus = 'no_email';
+      booking.confirmationEmailLastError = 'No email present on devotee profile.';
+      await booking.save();
+    }
+
     res.status(201).json({
       message: 'Booking created successfully.',
       bookingId: booking._id,
       booking: serializeBooking(booking),
       qrReady,
+      emailDelivery,
       status: {
         bookingDate: bookingDateKey,
         totalLimit: dailyLimit.totalLimit,
@@ -175,6 +211,58 @@ const getBookingQr = async (req, res) => {
   }
 };
 
+const resendBookingEmail = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const query = req.user.role === 'admin' ? { _id: id } : { _id: id, user: req.user.id };
+    const booking = await Booking.findOne(query).populate('user', 'name email');
+
+    if (!booking) {
+      return res.status(404).json({ message: 'Booking not found.' });
+    }
+
+    const ownerEmail = booking?.user?.email;
+    const ownerName = booking?.user?.name || booking.headDevoteeName;
+
+    if (!ownerEmail) {
+      booking.confirmationEmailStatus = 'no_email';
+      booking.confirmationEmailLastError = 'No email present on devotee profile.';
+      await booking.save();
+      return res.status(400).json({ message: 'No email found for this booking user.', booking: serializeBooking(booking) });
+    }
+
+    let qrReady = true;
+    try {
+      await ensureBookingQr(booking);
+    } catch (qrError) {
+      qrReady = false;
+      console.error(`[BookingQR] Resend failed for booking ${booking._id}: ${qrError.message}`);
+    }
+
+    const delivery = await sendBookingConfirmationEmail({
+      to: ownerEmail,
+      name: ownerName,
+      booking,
+      qrCode: booking.qrCode
+    });
+
+    await applyEmailStatusToBooking(booking, delivery);
+
+    return res.status(200).json({
+      message: delivery.delivered
+        ? 'Booking confirmation email resent successfully.'
+        : delivery.simulated
+          ? 'Email simulated because SMTP is not configured.'
+          : 'Email resend failed.',
+      delivery,
+      qrReady,
+      booking: serializeBooking(booking)
+    });
+  } catch (error) {
+    return res.status(500).json({ message: 'Server error.', error: error.message });
+  }
+};
+
 const getBookingStatus = async (req, res) => {
   try {
     const requestedDate = req.query.bookingDate || new Date();
@@ -203,5 +291,6 @@ module.exports = {
   getMyBookings,
   getBookingStatus,
   getBookingQr,
+  resendBookingEmail,
   ALLOWED_TIME_SLOTS
 };

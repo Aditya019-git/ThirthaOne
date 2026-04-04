@@ -49,6 +49,16 @@ const bookingSchema = new mongoose.Schema({
   qrCode: {
     type: String    // base64 QR image string
   },
+  confirmationEmailStatus: {
+    type: String,
+    default: 'pending'
+  },
+  confirmationEmailSentAt: {
+    type: Date
+  },
+  confirmationEmailLastError: {
+    type: String
+  },
   payment: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Payment'

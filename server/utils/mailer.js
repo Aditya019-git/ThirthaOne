@@ -51,4 +51,69 @@ const sendOtpEmail = async ({ to, name, otp, expiresAt }) => {
   }
 };
 
-module.exports = { sendOtpEmail, hasEmailConfig };
+const formatBookingDate = (value) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
+};
+
+const dataUrlToBuffer = (dataUrl) => {
+  const match = /^data:image\/png;base64,(.+)$/i.exec(String(dataUrl || ''));
+  if (!match) return null;
+  return Buffer.from(match[1], 'base64');
+};
+
+const sendBookingConfirmationEmail = async ({ to, name, booking, qrCode }) => {
+  if (!hasEmailConfig()) {
+    console.log(`[DEV BOOKING EMAIL] to=${to} bookingId=${booking?._id}`);
+    return { delivered: false, simulated: true, message: 'SMTP not configured.' };
+  }
+
+  try {
+    const mailer = getTransporter();
+    const qrBuffer = dataUrlToBuffer(qrCode);
+
+    await mailer.sendMail({
+      from: process.env.SMTP_FROM,
+      to,
+      subject: `Booking Confirmed | TirthOne | ${booking?._id}`,
+      text: [
+        `Namaste ${name || 'Devotee'},`,
+        '',
+        'Your VIP Darshan booking is confirmed.',
+        `Booking ID: ${booking?._id}`,
+        `Date: ${formatBookingDate(booking?.bookingDate)}`,
+        `Slot: ${booking?.timeSlot || '-'}`,
+        `Total People: ${booking?.memberCount || '-'}`,
+        '',
+        'Please carry the head devotee original Aadhaar at entry gate.'
+      ].join('\n'),
+      html: [
+        `<p>Namaste ${name || 'Devotee'},</p>`,
+        '<p>Your VIP Darshan booking is <strong>confirmed</strong>.</p>',
+        `<p><strong>Booking ID:</strong> ${booking?._id || '-'}</p>`,
+        `<p><strong>Date:</strong> ${formatBookingDate(booking?.bookingDate)}</p>`,
+        `<p><strong>Slot:</strong> ${booking?.timeSlot || '-'}</p>`,
+        `<p><strong>Total People:</strong> ${booking?.memberCount || '-'}</p>`,
+        '<p>Please carry the head devotee original Aadhaar at entry gate.</p>',
+        '<p>Jai Bhimashankar.</p>'
+      ].join(''),
+      attachments: qrBuffer
+        ? [
+            {
+              filename: `vip-darshan-qr-${booking?._id || 'pass'}.png`,
+              content: qrBuffer,
+              contentType: 'image/png'
+            }
+          ]
+        : []
+    });
+
+    return { delivered: true, simulated: false, message: 'Booking confirmation email sent.' };
+  } catch (error) {
+    console.error('Booking confirmation email failed:', error.message);
+    return { delivered: false, simulated: false, message: error.message };
+  }
+};
+
+module.exports = { sendOtpEmail, sendBookingConfirmationEmail, hasEmailConfig };

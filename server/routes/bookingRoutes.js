@@ -7,6 +7,7 @@ const {
   getMyBookings,
   getBookingStatus,
   getBookingQr,
+  resendBookingEmail,
   ALLOWED_TIME_SLOTS
 } = require('../controllers/bookingController');
 
@@ -46,6 +47,7 @@ router.post(
 
 router.get('/status', protect, allowRoles('devotee', 'admin'), getBookingStatus);
 router.get('/mine', protect, getMyBookings);
+router.post('/:id/resend-email', protect, allowRoles('devotee', 'admin'), resendBookingEmail);
 router.get('/:id/qr', protect, allowRoles('devotee', 'admin'), getBookingQr);
 
 module.exports = router;
