@@ -41,10 +41,24 @@ const bookingSchema = new mongoose.Schema({
     type: String,
     required: true   // e.g. "6:00 AM - 8:00 AM"
   },
+  bookingCode: {
+    type: String,
+    trim: true,
+    uppercase: true,
+    unique: true,
+    sparse: true
+  },
   status: {
     type: String,
     enum: ['pending', 'confirmed', 'visited', 'missed', 'cancelled', 'refunded'],
     default: 'pending'
+  },
+  visitedAt: {
+    type: Date
+  },
+  visitedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
   },
   qrCode: {
     type: String    // base64 QR image string

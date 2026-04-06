@@ -3,6 +3,7 @@ const cors = require('cors');
 require('dotenv').config();
 const connectDB = require('./config/db');
 const { scheduleBookingReopenJob } = require('./jobs/bookingWindowCron');
+const { handleRazorpayWebhook } = require('./controllers/bookingController');
 
 const app = express();
 
@@ -20,6 +21,7 @@ require('./models/DailyLimit');
 
 // 3. Middlewares
 app.use(cors());
+app.post('/api/booking/payment-webhook', express.raw({ type: 'application/json' }), handleRazorpayWebhook);
 app.use(express.json());
 
 // 4. Routes

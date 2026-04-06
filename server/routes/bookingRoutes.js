@@ -8,6 +8,9 @@ const {
   getBookingStatus,
   getBookingQr,
   resendBookingEmail,
+  verifyBookingPayment,
+  markBookingPaymentFailed,
+  scanBookingQr,
   ALLOWED_TIME_SLOTS
 } = require('../controllers/bookingController');
 
@@ -47,7 +50,10 @@ router.post(
 
 router.get('/status', protect, allowRoles('devotee', 'admin'), getBookingStatus);
 router.get('/mine', protect, getMyBookings);
+router.post('/scan', protect, allowRoles('gate_officer', 'admin'), scanBookingQr);
 router.post('/:id/resend-email', protect, allowRoles('devotee', 'admin'), resendBookingEmail);
+router.post('/:id/verify-payment', protect, allowRoles('devotee', 'admin'), verifyBookingPayment);
+router.post('/:id/payment-failed', protect, allowRoles('devotee', 'admin'), markBookingPaymentFailed);
 router.get('/:id/qr', protect, allowRoles('devotee', 'admin'), getBookingQr);
 
 module.exports = router;

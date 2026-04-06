@@ -1,6 +1,10 @@
 const mongoose = require('mongoose');
 
 const paymentSchema = new mongoose.Schema({
+  booking: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Booking'
+  },
   user: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -9,6 +13,10 @@ const paymentSchema = new mongoose.Schema({
   amount: {
     type: Number,
     required: true
+  },
+  currency: {
+    type: String,
+    default: 'INR'
   },
   type: {
     type: String,
@@ -21,10 +29,16 @@ const paymentSchema = new mongoose.Schema({
   razorpayPaymentId: {
     type: String
   },
+  razorpaySignature: {
+    type: String
+  },
   status: {
     type: String,
     enum: ['pending', 'paid', 'refunded', 'failed'],
     default: 'pending'
+  },
+  paidAt: {
+    type: Date
   },
   refundId: {
     type: String   // Razorpay refund ID

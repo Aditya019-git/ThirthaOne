@@ -8,6 +8,8 @@ const maskAadhaar = (aadhaar = '') => {
 
 const buildBookingQrPayload = (booking) => ({
   bookingId: String(booking._id),
+  bookingCode: booking.bookingCode || '',
+  passCode: booking.bookingCode || '',
   headDevoteeName: booking.headDevoteeName,
   headDevoteeAadhaarMasked: maskAadhaar(booking.headDevoteeAadhaar),
   memberCount: booking.memberCount,
