@@ -28,4 +28,25 @@ const generateBookingQrDataUrl = async (booking) => {
   });
 };
 
-module.exports = { generateBookingQrDataUrl };
+const buildUpiPayLink = ({ upiId, payeeName = '', amount, note = '' }) => {
+  const params = new URLSearchParams();
+  params.set('pa', String(upiId || '').trim());
+  if (payeeName) params.set('pn', String(payeeName).trim());
+  if (typeof amount === 'number' && Number.isFinite(amount) && amount > 0) {
+    params.set('am', String(amount.toFixed(2)));
+  }
+  params.set('cu', 'INR');
+  if (note) params.set('tn', String(note).trim().slice(0, 80));
+  return `upi://pay?${params.toString()}`;
+};
+
+const generateUpiQrDataUrl = async ({ upiId, payeeName = '', amount, note = '' }) => {
+  const link = buildUpiPayLink({ upiId, payeeName, amount, note });
+  return QRCode.toDataURL(link, {
+    errorCorrectionLevel: 'M',
+    margin: 1,
+    width: 320
+  });
+};
+
+module.exports = { generateBookingQrDataUrl, buildUpiPayLink, generateUpiQrDataUrl };

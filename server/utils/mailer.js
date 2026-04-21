@@ -116,4 +116,82 @@ const sendBookingConfirmationEmail = async ({ to, name, booking, qrCode }) => {
   }
 };
 
-module.exports = { sendOtpEmail, sendBookingConfirmationEmail, hasEmailConfig };
+const formatGuidePlaces = (places = []) => {
+  const list = Array.isArray(places) ? places : [];
+  if (!list.length) return '-';
+  return list
+    .map((p) => {
+      const name = p?.name || p?.code || '-';
+      const price = Number(p?.price);
+      return Number.isFinite(price) ? `${name} (Rs. ${price})` : name;
+    })
+    .join(', ');
+};
+
+const sendGuideTripUpdateEmail = async ({ to, name, booking, subject, statusLabel, note }) => {
+  if (!to) {
+    return { delivered: false, simulated: false, reason: 'Recipient email is missing.' };
+  }
+
+  const devoteeName = name || booking?.devotee?.name || booking?.headDevoteeName || 'Devotee';
+  const guideName = booking?.guide?.name || 'Guide';
+  const bookingDate = booking?.bookingDate
+    ? new Date(booking.bookingDate).toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric'
+    })
+    : '-';
+  const places = formatGuidePlaces(booking?.places);
+  const amount = Number(booking?.totalAmount) || 0;
+  const status = statusLabel || String(booking?.status || 'updated').replace(/_/g, ' ');
+  const safeNote = String(note || booking?.statusNote || '').trim();
+  const subjectLine = subject || `TirthOne Guide Trip Update: ${status}`;
+
+  if (!hasEmailConfig()) {
+    console.log(`[DEV GUIDE EMAIL] to=${to} status=${status} date=${bookingDate} guide=${guideName} amount=${amount}`);
+    return { delivered: false, simulated: true };
+  }
+
+  try {
+    const mailer = getTransporter();
+    const html = `
+      <p>Namaste ${devoteeName},</p>
+      <p>Your guide trip has an update.</p>
+      <p><strong>Status:</strong> ${status}</p>
+      <p><strong>Guide:</strong> ${guideName}</p>
+      <p><strong>Date:</strong> ${bookingDate}</p>
+      <p><strong>Destinations:</strong> ${places}</p>
+      <p><strong>Total:</strong> Rs. ${amount}</p>
+      ${safeNote ? `<p><strong>Note:</strong> ${safeNote}</p>` : ''}
+      <p>Jai Bhimashankar.</p>
+    `;
+
+    const text = [
+      `Namaste ${devoteeName},`,
+      'Your guide trip has an update.',
+      `Status: ${status}`,
+      `Guide: ${guideName}`,
+      `Date: ${bookingDate}`,
+      `Destinations: ${places}`,
+      `Total: Rs. ${amount}`,
+      safeNote ? `Note: ${safeNote}` : null,
+      'Jai Bhimashankar.'
+    ].filter(Boolean).join('\n');
+
+    await mailer.sendMail({
+      from: process.env.SMTP_FROM,
+      to,
+      subject: subjectLine,
+      text,
+      html
+    });
+
+    return { delivered: true, simulated: false };
+  } catch (error) {
+    console.error('Guide trip update email failed:', error.message);
+    return { delivered: false, simulated: false, reason: error.message };
+  }
+};
+
+module.exports = { sendOtpEmail, sendBookingConfirmationEmail, sendGuideTripUpdateEmail, hasEmailConfig };

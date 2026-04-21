@@ -1,6 +1,12 @@
 const crypto = require('crypto');
 const Booking = require('../models/Booking');
 const DailyLimit = require('../models/DailyLimit');
+<<<<<<< Updated upstream
+=======
+const Payment = require('../models/Payment');
+const ScanLog = require('../models/ScanLog');
+const PriestBooking = require('../models/PriestBooking');
+>>>>>>> Stashed changes
 const User = require('../models/User');
 const Payment = require('../models/Payment');
 const { validationResult } = require('express-validator');
@@ -400,8 +406,28 @@ const createBooking = async (req, res) => {
 
 const getMyBookings = async (req, res) => {
   try {
+<<<<<<< Updated upstream
     const bookings = await Booking.find({ user: req.user.id }).sort({ createdAt: -1 });
     res.status(200).json({ bookings: bookings.map(serializeBooking) });
+=======
+    const PriestBooking = require('../models/PriestBooking');
+    const GuideBooking = require('../models/GuideBooking');
+
+    const query = req.user.role === 'admin' ? {} : { user: req.user.id };
+    const bookings = await Booking.find(query).sort({ createdAt: -1 });
+
+    const priestQuery = req.user.role === 'admin' ? {} : { devotee: req.user.id };
+    const priestBookings = await PriestBooking.find(priestQuery).populate('priest', 'name').sort({ createdAt: -1 });
+
+    const guideQuery = req.user.role === 'admin' ? {} : { devotee: req.user.id };
+    const guideBookings = await GuideBooking.find(guideQuery).populate('guide', 'name').sort({ createdAt: -1 });
+
+    res.status(200).json({ 
+      bookings: bookings.map(serializeBooking),
+      priestBookings,
+      guideBookings
+    });
+>>>>>>> Stashed changes
   } catch (error) {
     res.status(500).json({ message: 'Server error.', error: error.message });
   }
@@ -419,10 +445,35 @@ const getBookingQr = async (req, res) => {
 
     await ensureBookingQr(booking);
 
+    const priestBooking = await PriestBooking.findOne({ darshanbooking: booking._id })
+      .populate('priest', 'name mobile email')
+      .populate('priestProfile', 'age photoUrl isVerified')
+      .sort({ createdAt: -1 });
+
+    const priestStatus = String(priestBooking?.status || '').toLowerCase();
+    const shouldExposePriestService = ['confirmed', 'completed', 'cancelled'].includes(priestStatus);
+
+    const priestService = priestBooking && shouldExposePriestService
+      ? {
+          priestBookingId: priestBooking._id,
+          ritualType: priestBooking.ritualType,
+          timeSlot: priestBooking.timeSlot,
+          status: priestBooking.status,
+          feedbackId: priestBooking.feedback || null,
+          priestName: priestBooking.priest?.name || '-',
+          priestMobile: priestBooking.priest?.mobile || '-',
+          priestEmail: priestBooking.priest?.email || '-',
+          priestAge: priestBooking.priestProfile?.age || null,
+          priestPhotoUrl: priestBooking.priestProfile?.photoUrl || '',
+          isVerifiedPriest: Boolean(priestBooking.priestProfile?.isVerified)
+        }
+      : null;
+
     return res.status(200).json({
       message: 'QR pass fetched successfully.',
       booking: serializeBooking(booking),
-      qrCode: booking.qrCode
+      qrCode: booking.qrCode,
+      priestService
     });
   } catch (error) {
     return res.status(500).json({ message: 'Server error.', error: error.message });
