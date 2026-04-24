@@ -1,12 +1,7 @@
 const crypto = require('crypto');
 const Booking = require('../models/Booking');
 const DailyLimit = require('../models/DailyLimit');
-<<<<<<< Updated upstream
-=======
-const Payment = require('../models/Payment');
-const ScanLog = require('../models/ScanLog');
 const PriestBooking = require('../models/PriestBooking');
->>>>>>> Stashed changes
 const User = require('../models/User');
 const Payment = require('../models/Payment');
 const { validationResult } = require('express-validator');
@@ -406,10 +401,6 @@ const createBooking = async (req, res) => {
 
 const getMyBookings = async (req, res) => {
   try {
-<<<<<<< Updated upstream
-    const bookings = await Booking.find({ user: req.user.id }).sort({ createdAt: -1 });
-    res.status(200).json({ bookings: bookings.map(serializeBooking) });
-=======
     const PriestBooking = require('../models/PriestBooking');
     const GuideBooking = require('../models/GuideBooking');
 
@@ -427,7 +418,6 @@ const getMyBookings = async (req, res) => {
       priestBookings,
       guideBookings
     });
->>>>>>> Stashed changes
   } catch (error) {
     res.status(500).json({ message: 'Server error.', error: error.message });
   }

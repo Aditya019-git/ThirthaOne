@@ -14,24 +14,15 @@ const paymentSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
-<<<<<<< Updated upstream
-=======
   type: {
     type: String,
     enum: ['darshan', 'vip_pass', 'priest', 'guide', 'combo'],
     required: true
   },
->>>>>>> Stashed changes
   currency: {
     type: String,
     default: 'INR'
   },
-<<<<<<< Updated upstream
-  type: {
-    type: String,
-    enum: ['darshan', 'priest', 'guide'],
-    required: true
-=======
   staffCut: {
     type: Number,
     default: 0
@@ -44,7 +35,6 @@ const paymentSchema = new mongoose.Schema({
     type: Map,
     of: Number,
     default: {}
->>>>>>> Stashed changes
   },
   razorpayOrderId: {
     type: String

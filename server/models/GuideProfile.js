@@ -30,6 +30,14 @@ const guideProfileSchema = new mongoose.Schema(
       type: [String],
       default: []
     },
+    upiId: {
+      type: String,
+      default: ''
+    },
+    upiName: {
+      type: String,
+      default: ''
+    },
     bankDetails: {
       accountName: { type: String, default: '' },
       bankName: { type: String, default: '' },

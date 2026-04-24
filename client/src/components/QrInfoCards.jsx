@@ -7,7 +7,7 @@ const QR_INFO_CARDS = [
   {
     icon: '\uD83D\uDCF1',
     title: 'QR Pass Details',
-    desc: "Your QR pass encodes devotee names, head member's Aadhaar (masked), booking date, slot, and booking ID."
+    desc: "Your QR pass encodes devotee names, head member's Aadhaar (masked), booking date, slot, and pass code."
   },
   {
     icon: '\u23F0',

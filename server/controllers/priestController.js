@@ -657,6 +657,11 @@ const verifyPriestPayment = async (req, res) => {
     payment.razorpayPaymentId = paymentId;
     payment.razorpaySignature = signature;
     payment.paidAt = new Date();
+    
+    // Temple gets 35%, Priest gets 65%
+    payment.templeCut = payment.amount * 0.35;
+    payment.staffCut = payment.amount * 0.65;
+    
     await payment.save();
 
     booking.status = 'confirmed';

@@ -144,6 +144,9 @@ const createGuideByAdmin = async (req, res) => {
     const photoDataUrl = sanitizePhotoDataUrl(req.body.photoDataUrl || req.body.photoUrl || '');
     const bio = String(req.body.bio || '').trim();
     const destinations = Array.isArray(req.body.destinations) ? req.body.destinations : [];
+    const upiId = String(req.body.upiId || '').trim();
+    const upiName = String(req.body.upiName || '').trim();
+    const bankDetails = req.body.bankDetails || {};
 
     if (!name) return res.status(400).json({ message: 'Guide name is required.' });
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -201,6 +204,9 @@ const createGuideByAdmin = async (req, res) => {
       bio,
       yearsExperience: Number.isFinite(yearsExperience) ? Math.max(0, yearsExperience) : 0,
       destinations: normalizedDestinations,
+      upiId,
+      upiName,
+      bankDetails,
       isActive: true,
       isVerified: true,
       verifiedAt: new Date(),
@@ -512,6 +518,11 @@ const verifyGuidePayment = async (req, res) => {
     payment.razorpayPaymentId = paymentId;
     payment.razorpaySignature = signature;
     payment.paidAt = new Date();
+    
+    // Temple gets 15%, Guide gets 85%
+    payment.templeCut = payment.amount * 0.15;
+    payment.staffCut = payment.amount * 0.85;
+    
     await payment.save();
 
     const refreshed = await GuideBooking.findById(booking._id).populate(guideBookingPopulate);

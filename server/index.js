@@ -27,13 +27,8 @@ require('./models/DailyLimit');
 // 3. Middlewares
 app.use(cors());
 app.post('/api/booking/payment-webhook', express.raw({ type: 'application/json' }), handleRazorpayWebhook);
-<<<<<<< Updated upstream
-app.use(express.json());
-=======
-
 app.use(express.json({ limit: '6mb' }));
 app.use(express.urlencoded({ extended: true, limit: '6mb' }));
->>>>>>> Stashed changes
 
 // 4. Routes
 const authRoutes = require('./routes/authRoutes');
@@ -41,11 +36,16 @@ const bookingRoutes = require('./routes/bookingRoutes');
 const priestRoutes = require('./routes/priestRoutes');
 const guideRoutes = require('./routes/guideRoutes');
 const comboRoutes = require('./routes/comboRoutes');
+const adminRoutes = require('./routes/adminRoutes');
+const complaintRoutes = require('./routes/complaintRoutes');
+
 app.use('/api/auth', authRoutes);
 app.use('/api/booking', bookingRoutes);
 app.use('/api/priest', priestRoutes);
 app.use('/api/guide', guideRoutes);
 app.use('/api/combo', comboRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/complaints', complaintRoutes);
 
 // 5. Schedulers
 scheduleBookingReopenJob();
