@@ -23,6 +23,7 @@ require('./models/GuideProfile');
 require('./models/GuideFeedback');
 require('./models/Payment');
 require('./models/DailyLimit');
+require('./models/Payout');
 
 // 3. Middlewares
 app.use(cors());
@@ -38,6 +39,7 @@ const guideRoutes = require('./routes/guideRoutes');
 const comboRoutes = require('./routes/comboRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const complaintRoutes = require('./routes/complaintRoutes');
+const payoutRoutes = require('./routes/payoutRoutes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/booking', bookingRoutes);
@@ -46,6 +48,7 @@ app.use('/api/guide', guideRoutes);
 app.use('/api/combo', comboRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/complaints', complaintRoutes);
+app.use('/api/payouts', payoutRoutes);
 
 // 5. Schedulers
 scheduleBookingReopenJob();

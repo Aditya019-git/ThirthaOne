@@ -3,6 +3,7 @@ const GuideProfile = require('../models/GuideProfile');
 const GuideBooking = require('../models/GuideBooking');
 const GuideFeedback = require('../models/GuideFeedback');
 const Payment = require('../models/Payment');
+const Payout = require('../models/Payout');
 const { GUIDE_PLACES_CATALOG, buildGuidePlacesFromCodes, normalizePlaceCode } = require('../utils/guideRules');
 const { sendGuideTripUpdateEmail } = require('../utils/mailer');
 const { autoRefundGuideBookings } = require('../jobs/refundEngineCron');
@@ -524,6 +525,17 @@ const verifyGuidePayment = async (req, res) => {
     payment.staffCut = payment.amount * 0.85;
     
     await payment.save();
+
+    if (payment.staffCut > 0 && booking.guide) {
+      await Payout.create({
+        staffType: 'guide',
+        staffId: booking.guide,
+        amount: payment.staffCut,
+        sourceType: 'booking',
+        referenceId: booking._id,
+        status: 'pending'
+      });
+    }
 
     const refreshed = await GuideBooking.findById(booking._id).populate(guideBookingPopulate);
     return res.status(200).json({

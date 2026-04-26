@@ -459,11 +459,36 @@ const getBookingQr = async (req, res) => {
         }
       : null;
 
+    const GuideBooking = require('../models/GuideBooking');
+    const guideBooking = await GuideBooking.findOne({ payment: booking.payment })
+      .populate('guide', 'name mobile email')
+      .populate('guideProfile', 'age photoUrl isVerified')
+      .sort({ createdAt: -1 });
+
+    const guideStatus = String(guideBooking?.status || '').toLowerCase();
+    const shouldExposeGuideService = ['confirmed', 'completed', 'cancelled'].includes(guideStatus);
+
+    const guideService = guideBooking && shouldExposeGuideService
+      ? {
+          guideBookingId: guideBooking._id,
+          places: guideBooking.places || [],
+          status: guideBooking.status,
+          feedbackId: guideBooking.feedback || null,
+          guideName: guideBooking.guide?.name || '-',
+          guideMobile: guideBooking.guide?.mobile || '-',
+          guideEmail: guideBooking.guide?.email || '-',
+          guideAge: guideBooking.guideProfile?.age || null,
+          guidePhotoUrl: guideBooking.guideProfile?.photoUrl || '',
+          isVerifiedGuide: Boolean(guideBooking.guideProfile?.isVerified)
+        }
+      : null;
+
     return res.status(200).json({
       message: 'QR pass fetched successfully.',
       booking: serializeBooking(booking),
       qrCode: booking.qrCode,
-      priestService
+      priestService,
+      guideService
     });
   } catch (error) {
     return res.status(500).json({ message: 'Server error.', error: error.message });

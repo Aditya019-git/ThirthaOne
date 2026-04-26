@@ -4,6 +4,7 @@ const PriestProfile = require('../models/PriestProfile');
 const PriestBooking = require('../models/PriestBooking');
 const PriestFeedback = require('../models/PriestFeedback');
 const Payment = require('../models/Payment');
+const Payout = require('../models/Payout');
 const {
   isPaymentRequired,
   toPaise,
@@ -663,6 +664,17 @@ const verifyPriestPayment = async (req, res) => {
     payment.staffCut = payment.amount * 0.65;
     
     await payment.save();
+
+    if (payment.staffCut > 0 && booking.priest) {
+      await Payout.create({
+        staffType: 'priest',
+        staffId: booking.priest,
+        amount: payment.staffCut,
+        sourceType: 'booking',
+        referenceId: booking._id,
+        status: 'pending'
+      });
+    }
 
     booking.status = 'confirmed';
     await booking.save();

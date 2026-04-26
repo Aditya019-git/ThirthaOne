@@ -4,6 +4,7 @@ const Payment = require('../models/Payment');
 const { IST_TIME_ZONE, getTodayDateKey } = require('../utils/bookingRules');
 const { getRazorpayClient, hasRazorpayCredentials, toPaise } = require('../utils/razorpay');
 const { sendGuideTripUpdateEmail } = require('../utils/mailer');
+const { handleBookingCancellationForPayouts } = require('../controllers/payoutController');
 
 const normalizeStatus = (value = '') => String(value || '').trim().toLowerCase();
 
@@ -95,6 +96,8 @@ const autoRefundGuideBookings = async () => {
     booking.status = 'refunded';
     booking.statusNote = note;
     await booking.save();
+
+    await handleBookingCancellationForPayouts([booking._id]);
 
     refundedCount += 1;
 

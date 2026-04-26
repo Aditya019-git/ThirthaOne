@@ -3,7 +3,12 @@ const Payment = require('../models/Payment');
 const Complaint = require('../models/Complaint');
 const PriestProfile = require('../models/PriestProfile');
 const GuideProfile = require('../models/GuideProfile');
+const PriestBooking = require('../models/PriestBooking');
+const GuideBooking = require('../models/GuideBooking');
 const { Parser } = require('json2csv');
+const { handleBookingCancellationForPayouts } = require('./payoutController');
+
+const User = require('../models/User');
 
 const getTodayDateKey = () => {
   const d = new Date();
@@ -15,45 +20,94 @@ const getDashboardMetrics = async (req, res) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(today.getDate() - 6);
+    sevenDaysAgo.setHours(0, 0, 0, 0);
+
     // 1. Today's Bookings
     const bookingsToday = await Booking.find({ bookingDate: { $gte: today } });
     const totalBookings = bookingsToday.length;
     const visitedBookings = bookingsToday.filter(b => b.status === 'visited').length;
     const remainingBookings = bookingsToday.filter(b => b.status === 'confirmed').length;
 
-    // 2. Revenue (Last 7 Days) for Chart
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    
-    // Aggregate payments over last 7 days
+    // 2. Revenue (Last 7 Days)
     const payments = await Payment.find({ createdAt: { $gte: sevenDaysAgo }, status: 'paid' });
     
     let totalRevenue = 0;
     const dayRevenueMap = {};
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    
+    // Initialize last 7 days
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(sevenDaysAgo);
+      d.setDate(sevenDaysAgo.getDate() + i);
+      dayRevenueMap[dayNames[d.getDay()]] = 0;
+    }
 
     payments.forEach(p => {
       totalRevenue += p.amount;
-      const day = new Date(p.createdAt).toLocaleDateString('en-US', { weekday: 'short' });
-      dayRevenueMap[day] = (dayRevenueMap[day] || 0) + p.amount;
+      const day = dayNames[new Date(p.createdAt).getDay()];
+      if (dayRevenueMap[day] !== undefined) dayRevenueMap[day] += p.amount;
     });
 
-    const revenueLabels = Object.keys(dayRevenueMap);
-    const revenueData = Object.values(dayRevenueMap);
+    // 3. New Devotee Sign-ups (Weekly)
+    const recentUsers = await User.find({ createdAt: { $gte: sevenDaysAgo }, role: 'devotee' });
+    const daySignupMap = {};
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(sevenDaysAgo);
+      d.setDate(sevenDaysAgo.getDate() + i);
+      daySignupMap[dayNames[d.getDay()]] = 0;
+    }
+    recentUsers.forEach(u => {
+      const day = dayNames[new Date(u.createdAt).getDay()];
+      if (daySignupMap[day] !== undefined) daySignupMap[day] += 1;
+    });
+
+    // 4. Scheduled Services
+    const scheduledPriest = await PriestBooking.countDocuments({ bookingDate: { $gte: today }, status: 'confirmed' });
+    const scheduledGuide = await GuideBooking.countDocuments({ bookingDate: { $gte: today }, status: 'confirmed' });
+
+    // 5. Pending Finance Tasks (Open Complaints for now)
+    const pendingTasks = await Complaint.countDocuments({ status: { $ne: 'Resolved' } });
+
+    // 6. Recent Transactions
+    const recentTxns = await Payment.find({ status: 'paid' })
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .populate('user', 'name');
+
+    const formattedTxns = recentTxns.map(t => ({
+      id: t.razorpayOrderId ? t.razorpayOrderId.slice(-6) : t._id.toString().slice(-6),
+      type: t.type,
+      name: t.user ? t.user.name : 'Unknown',
+      amount: `₹${t.amount.toFixed(2)}`,
+      status: t.status === 'paid' ? 'Cleared' : 'Pending',
+      date: new Date(t.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    }));
 
     res.status(200).json({
       stats: {
         totalBookings,
         visitedBookings,
         remainingBookings,
-        totalRevenue
+        totalRevenue,
+        activeUsers: await User.countDocuments({ role: 'devotee' }),
+        scheduledServices: scheduledPriest + scheduledGuide,
+        pendingTasks
       },
       chartData: {
-        labels: revenueLabels,
-        data: revenueData
-      }
+        labels: Object.keys(dayRevenueMap),
+        data: Object.values(dayRevenueMap)
+      },
+      signupsData: {
+        labels: Object.keys(daySignupMap),
+        data: Object.values(daySignupMap)
+      },
+      recentTransactions: formattedTxns
     });
 
   } catch (error) {
+    console.error(error);
     res.status(500).json({ message: 'Server error fetching metrics', error: error.message });
   }
 };
@@ -97,6 +151,18 @@ const resolveComplaint = async (req, res) => {
   }
 };
 
+const deleteComplaint = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const complaint = await Complaint.findByIdAndDelete(id);
+    if (!complaint) return res.status(404).json({ message: 'Complaint not found' });
+    
+    res.status(200).json({ message: 'Complaint deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error deleting complaint', error: error.message });
+  }
+};
+
 const processManualRefund = async (req, res) => {
   try {
     const { bookingId } = req.body;
@@ -115,6 +181,25 @@ const processManualRefund = async (req, res) => {
     if (payment) {
       payment.status = 'refunded';
       await payment.save();
+      
+      const pbs = await PriestBooking.find({ payment: payment._id });
+      const gbs = await GuideBooking.find({ payment: payment._id });
+      
+      const subIds = [];
+      for (const pb of pbs) {
+        pb.status = 'cancelled';
+        await pb.save();
+        subIds.push(pb._id);
+      }
+      for (const gb of gbs) {
+        gb.status = 'cancelled';
+        await gb.save();
+        subIds.push(gb._id);
+      }
+      
+      if (subIds.length > 0) {
+        await handleBookingCancellationForPayouts(subIds);
+      }
     }
 
     res.status(200).json({ message: 'Booking cancelled and refunded successfully' });
@@ -159,6 +244,7 @@ module.exports = {
   getDashboardMetrics,
   getComplaints,
   resolveComplaint,
+  deleteComplaint,
   processManualRefund,
   generateCsvReport
 };

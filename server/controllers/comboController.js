@@ -7,11 +7,33 @@ const PriestProfile = require('../models/PriestProfile');
 const GuideBooking = require('../models/GuideBooking');
 const GuideProfile = require('../models/GuideProfile');
 const Payment = require('../models/Payment');
+const Payout = require('../models/Payout');
 
 const { getBookingStatusForDate, ensureDailyLimit, releaseDailyCapacity, normalizeMemberName, formatDateKey, getTodayDateKey, ALLOWED_TIME_SLOTS } = require('../utils/bookingRules');
 const { getRitualByCode } = require('../utils/priestRules');
 const { buildGuidePlacesFromCodes } = require('../utils/guideRules');
-const { calculateBookingAmount, getRazorpayClient, hasRazorpayCredentials, toPaise, verifyRazorpaySignature } = require('../utils/razorpay');
+const { calculateBookingAmount, getRazorpayClient, hasRazorpayConfig, isPaymentRequired, toPaise, verifyRazorpaySignature } = require('../utils/razorpay');
+
+const PASS_CODE_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+const PASS_CODE_LENGTH = 8;
+
+const generatePassCode = () => {
+  let code = '';
+  for (let i = 0; i < PASS_CODE_LENGTH; i += 1) {
+    const idx = Math.floor(Math.random() * PASS_CODE_ALPHABET.length);
+    code += PASS_CODE_ALPHABET[idx];
+  }
+  return code;
+};
+
+const generateAvailablePassCode = async () => {
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    const candidate = generatePassCode();
+    const existing = await Booking.exists({ bookingCode: candidate });
+    if (!existing) return candidate;
+  }
+  throw new Error('Unable to generate unique pass code.');
+};
 
 const bookCombo = async (req, res) => {
   try {
@@ -48,10 +70,14 @@ const bookCombo = async (req, res) => {
       priestStaffCut = priestAmount * 0.65;
       priestTempleCut = priestAmount * 0.35;
 
-      // assign random available priest for combo
-      const docs = await PriestProfile.find({ isVerified: true });
-      if (docs.length > 0) {
-        assignedPriestProfile = docs[Math.floor(Math.random() * docs.length)];
+      if (priestAddon.priestId) {
+        assignedPriestProfile = await PriestProfile.findById(priestAddon.priestId);
+      } else {
+        // assign random available priest for combo
+        const docs = await PriestProfile.find({ isVerified: true });
+        if (docs.length > 0) {
+          assignedPriestProfile = docs[Math.floor(Math.random() * docs.length)];
+        }
       }
     }
 
@@ -73,24 +99,37 @@ const bookCombo = async (req, res) => {
       guideStaffCut = guideAmount * 0.85;
       guideTempleCut = guideAmount * 0.15;
 
-      const docs = await GuideProfile.find({ isVerified: true });
-      if (docs.length > 0) {
-        assignedGuideProfile = docs[Math.floor(Math.random() * docs.length)];
+      if (guideAddon.guideId) {
+        assignedGuideProfile = await GuideProfile.findById(guideAddon.guideId);
+      } else {
+        const docs = await GuideProfile.find({ isVerified: true });
+        if (docs.length > 0) {
+          assignedGuideProfile = docs[Math.floor(Math.random() * docs.length)];
+        }
       }
     }
 
     // 4. Razorpay combined checkout
     const totalAmount = vipAmount + priestAmount + guideAmount;
 
-    if (!hasRazorpayCredentials()) {
-      return res.status(503).json({ message: 'Razorpay credentials missing on server.' });
-    }
-    const razorpay = getRazorpayClient();
+    const paymentFlowEnabled = isPaymentRequired();
+    let orderId = 'mock_order_' + Date.now();
+    let paymentAmount = toPaise(totalAmount);
+    let paymentCurrency = 'INR';
 
-    const order = await razorpay.orders.create({
-      amount: toPaise(totalAmount),
-      currency: 'INR'
-    });
+    if (paymentFlowEnabled && totalAmount > 0) {
+      if (!hasRazorpayConfig()) {
+        return res.status(503).json({ message: 'Razorpay credentials missing on server.' });
+      }
+      const razorpay = getRazorpayClient();
+      const order = await razorpay.orders.create({
+        amount: toPaise(totalAmount),
+        currency: 'INR'
+      });
+      orderId = order.id;
+      paymentAmount = order.amount;
+      paymentCurrency = order.currency;
+    }
 
     // 5. Create Payment
     const paymentRecord = await Payment.create({
@@ -98,8 +137,8 @@ const bookCombo = async (req, res) => {
       amount: totalAmount,
       currency: 'INR',
       type: 'combo',
-      status: 'pending',
-      razorpayOrderId: order.id,
+      status: (paymentFlowEnabled && totalAmount > 0) ? 'pending' : 'paid',
+      razorpayOrderId: orderId,
       comboBreakdown: {
         vipAmount,
         priestAmount,
@@ -113,18 +152,35 @@ const bookCombo = async (req, res) => {
 
     // 6. DB Doc Creations
     // Darshan Booking
-    const booking = await Booking.create({
-      user: req.user.id,
-      headDevoteeName,
-      headDevoteeAadhaar,
-      bookingDate: new Date(`${bookingDateKey}T00:00:00+05:30`),
-      timeSlot,
-      members,
-      memberCount,
-      status: 'pending',
-      paymentRequired: true,
-      payment: paymentRecord._id
-    });
+    let booking = null;
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const bookingCode = await generateAvailablePassCode();
+      try {
+        booking = await Booking.create({
+          user: req.user.id,
+          headDevoteeName,
+          headDevoteeAadhaar,
+          bookingDate: new Date(`${bookingDateKey}T00:00:00+05:30`),
+          timeSlot,
+          members,
+          memberCount,
+          bookingCode,
+          status: (paymentFlowEnabled && totalAmount > 0) ? 'pending' : 'confirmed',
+          paymentRequired: (paymentFlowEnabled && totalAmount > 0),
+          payment: paymentRecord._id
+        });
+        break;
+      } catch (createError) {
+        if (createError?.code === 11000 && createError?.keyPattern?.bookingCode) {
+          continue;
+        }
+        throw createError;
+      }
+    }
+
+    if (!booking) {
+      throw new Error('Unable to create booking pass code. Please retry.');
+    }
 
     let priestBookingId = null;
     let guideBookingId = null;
@@ -142,10 +198,20 @@ const bookCombo = async (req, res) => {
         totalAmount: priestAmount,
         bookingDate: new Date(`${bookingDateKey}T00:00:00+05:30`),
         timeSlot: timeSlot,
-        status: 'pending',
+        status: (paymentFlowEnabled && totalAmount > 0) ? 'pending' : 'confirmed',
         payment: paymentRecord._id
       });
       priestBookingId = pb._id;
+      if (!(paymentFlowEnabled && totalAmount > 0) && priestStaffCut > 0 && pb.priest) {
+        await Payout.create({
+          staffType: 'priest',
+          staffId: pb.priest,
+          amount: priestStaffCut,
+          sourceType: 'booking',
+          referenceId: pb._id,
+          status: 'pending'
+        });
+      }
     }
 
     // Guide Booking
@@ -157,24 +223,34 @@ const bookCombo = async (req, res) => {
         places,
         bookingDate: new Date(`${bookingDateKey}T00:00:00+05:30`),
         totalAmount: guideAmount,
-        status: 'pending',
+        status: (paymentFlowEnabled && totalAmount > 0) ? 'pending' : 'confirmed',
         payment: paymentRecord._id
       });
       guideBookingId = gb._id;
+      if (!(paymentFlowEnabled && totalAmount > 0) && guideStaffCut > 0 && gb.guide) {
+        await Payout.create({
+          staffType: 'guide',
+          staffId: gb.guide,
+          amount: guideStaffCut,
+          sourceType: 'booking',
+          referenceId: gb._id,
+          status: 'pending'
+        });
+      }
     }
 
     return res.status(201).json({
       message: 'Combo booking initialized.',
-      paymentRequired: true,
+      paymentRequired: (paymentFlowEnabled && totalAmount > 0),
       bookingId: booking._id,
       priestBookingId,
       guideBookingId,
-      payment: {
-        orderId: order.id,
-        amount: order.amount,
-        currency: order.currency,
+      payment: (paymentFlowEnabled && totalAmount > 0) ? {
+        orderId: orderId,
+        amount: paymentAmount,
+        currency: paymentCurrency,
         keyId: process.env.RAZORPAY_KEY_ID
-      }
+      } : null
     });
 
   } catch (err) {
@@ -218,8 +294,37 @@ const verifyComboPayment = async (req, res) => {
     await booking.save();
 
     // Confirm sub-bookings
-    await PriestBooking.updateMany({ payment: payment._id, status: 'pending' }, { status: 'confirmed' });
-    await GuideBooking.updateMany({ payment: payment._id, status: 'pending' }, { status: 'confirmed' });
+    const pbs = await PriestBooking.find({ payment: payment._id, status: 'pending' });
+    for (const pb of pbs) {
+      pb.status = 'confirmed';
+      await pb.save();
+      if (payment.comboBreakdown && payment.comboBreakdown.get('priestStaffCut') > 0 && pb.priest) {
+        await Payout.create({
+          staffType: 'priest',
+          staffId: pb.priest,
+          amount: payment.comboBreakdown.get('priestStaffCut'),
+          sourceType: 'booking',
+          referenceId: pb._id,
+          status: 'pending'
+        });
+      }
+    }
+
+    const gbs = await GuideBooking.find({ payment: payment._id, status: 'pending' });
+    for (const gb of gbs) {
+      gb.status = 'confirmed';
+      await gb.save();
+      if (payment.comboBreakdown && payment.comboBreakdown.get('guideStaffCut') > 0 && gb.guide) {
+        await Payout.create({
+          staffType: 'guide',
+          staffId: gb.guide,
+          amount: payment.comboBreakdown.get('guideStaffCut'),
+          sourceType: 'booking',
+          referenceId: gb._id,
+          status: 'pending'
+        });
+      }
+    }
 
     return res.status(200).json({ message: 'Combo payment verified successfully.' });
   } catch (err) {
