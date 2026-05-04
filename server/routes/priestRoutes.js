@@ -15,7 +15,8 @@ const {
   updatePriestBookingStatus,
   submitPriestFeedback,
   verifyPriestPayment,
-  getPriestReviews
+  getPriestReviews,
+  deletePriestByAdmin
 } = require('../controllers/priestController');
 
 const router = express.Router();
@@ -36,5 +37,6 @@ router.get('/:id/reviews', protect, allowRoles('devotee', 'admin', 'priest'), ge
 router.post('/admin/priests', protect, allowRoles('admin'), createPriestByAdmin);
 router.get('/admin/priests', protect, allowRoles('admin'), getPriestsForAdmin);
 router.patch('/admin/priests/:id', protect, allowRoles('admin'), updatePriestByAdmin);
+router.delete('/admin/priests/:id', protect, allowRoles('admin'), deletePriestByAdmin);
 
 module.exports = router;

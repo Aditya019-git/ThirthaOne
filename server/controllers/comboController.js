@@ -45,6 +45,7 @@ const bookCombo = async (req, res) => {
 
     // 1. VIP Pass validations
     if (!headDevoteeName) return res.status(400).json({ message: 'Head devotee name is required.' });
+    if (!headDevoteeAadhaar || !/^\d{12}$/.test(headDevoteeAadhaar)) return res.status(400).json({ message: 'Valid 12-digit Head Devotee Aadhaar is required.' });
     if (!bookingDateKey || bookingDateKey < getTodayDateKey()) return res.status(400).json({ message: 'Invalid booking date.' });
     if (memberCount < 1 || memberCount > 6) return res.status(400).json({ message: 'Booking must contain between 1 and 6 devotees.' });
 

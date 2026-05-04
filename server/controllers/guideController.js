@@ -327,6 +327,25 @@ const updateGuideByAdmin = async (req, res) => {
   }
 };
 
+const deleteGuideByAdmin = async (req, res) => {
+  try {
+    const profile = await GuideProfile.findById(req.params.id);
+    if (!profile) {
+      return res.status(404).json({ message: 'Guide profile not found.' });
+    }
+
+    if (profile.user) {
+      await User.findByIdAndDelete(profile.user);
+    }
+
+    await GuideProfile.findByIdAndDelete(profile._id);
+
+    return res.status(200).json({ message: 'Guide deleted successfully.' });
+  } catch (error) {
+    return res.status(500).json({ message: 'Server error.', error: error.message });
+  }
+};
+
 const getGuideTemplateList = async (_req, res) => {
   try {
     const ratingMap = await getRatingStatsMap();
@@ -897,6 +916,7 @@ module.exports = {
   createGuideByAdmin,
   getGuidesForAdmin,
   updateGuideByAdmin,
+  deleteGuideByAdmin,
   getGuideTemplateList,
   createGuideBooking,
   verifyGuidePayment,

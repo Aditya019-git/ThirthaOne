@@ -16,7 +16,8 @@ const {
   submitGuideFeedback,
   getGuideReviews,
   verifyGuidePayment,
-  runRefundEngineNow
+  runRefundEngineNow,
+  deleteGuideByAdmin
 } = require('../controllers/guideController');
 
 const router = express.Router();
@@ -40,6 +41,7 @@ router.get('/:id/reviews', protect, allowRoles('devotee', 'admin', 'guide'), get
 router.post('/admin/guides', protect, allowRoles('admin'), createGuideByAdmin);
 router.get('/admin/guides', protect, allowRoles('admin'), getGuidesForAdmin);
 router.patch('/admin/guides/:id', protect, allowRoles('admin'), updateGuideByAdmin);
+router.delete('/admin/guides/:id', protect, allowRoles('admin'), deleteGuideByAdmin);
 router.post('/admin/refund-engine/run', protect, allowRoles('admin'), runRefundEngineNow);
 
 module.exports = router;

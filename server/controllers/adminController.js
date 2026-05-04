@@ -240,11 +240,115 @@ const generateCsvReport = async (req, res) => {
   }
 };
 
+const getPublicTempleStatus = async (req, res) => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Dynamic Wait Time Calculation: Base wait time is 15 mins. Add 2 mins per unvisited booking today.
+    const bookingsToday = await Booking.find({ bookingDate: { $gte: today } });
+    const pendingBookings = bookingsToday.filter(b => b.status === 'confirmed').length;
+    
+    let estimatedWaitMins = 15 + (pendingBookings * 2);
+    if (estimatedWaitMins > 180) estimatedWaitMins = 180; // Cap at 3 hours
+
+    // Hardcoded upcoming events for now
+    const upcomingEvents = [
+      { id: 1, month: 'MAR', day: '08', name: 'Mahashivratri', desc: 'Grand celebration with midnight Aarti.' },
+      { id: 2, month: 'MAR', day: '25', name: 'Ram Navami', desc: 'Special darshan and continuous chanting.' }
+    ];
+
+    res.json({
+      success: true,
+      waitTimeMins: estimatedWaitMins,
+      events: upcomingEvents,
+      nextAarti: {
+        name: 'Sandhya Aarti',
+        time: '6:30 PM',
+        status: 'Preparing',
+        indicator: 'yellow'
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching temple status:', error);
+    res.status(500).json({ error: 'Failed to fetch temple status' });
+  }
+};
+
+// ==========================================
+// GATE OFFICER MANAGEMENT
+// ==========================================
+
+const getGateOfficers = async (req, res) => {
+  try {
+    const officers = await User.find({ role: 'gate_officer' }).select('-password').sort({ createdAt: -1 });
+    res.status(200).json(officers);
+  } catch (error) {
+    console.error('getGateOfficers error:', error);
+    res.status(500).json({ message: 'Server error fetching gate officers' });
+  }
+};
+
+const createGateOfficer = async (req, res) => {
+  try {
+    const { name, email, mobile, password } = req.body;
+    
+    if (!name || !password) {
+      return res.status(400).json({ message: 'Name and password are required' });
+    }
+    if (!email && !mobile) {
+      return res.status(400).json({ message: 'At least one of email or mobile is required' });
+    }
+
+    const uniqueChecks = [];
+    if (email) uniqueChecks.push({ email });
+    if (mobile) uniqueChecks.push({ mobile });
+
+    const existingUser = await User.findOne({ $or: uniqueChecks });
+    if (existingUser) {
+      return res.status(400).json({ message: 'User already exists with this email or mobile' });
+    }
+
+    const officer = await User.create({
+      name,
+      email: email || undefined,
+      mobile: mobile || undefined,
+      password,
+      role: 'gate_officer'
+    });
+
+    res.status(201).json({ message: 'Gate Officer created successfully', officer });
+  } catch (error) {
+    console.error('createGateOfficer error:', error);
+    res.status(500).json({ message: 'Server error creating gate officer' });
+  }
+};
+
+const deleteGateOfficer = async (req, res) => {
+  try {
+    const officerId = req.params.id;
+    const officer = await User.findOneAndDelete({ _id: officerId, role: 'gate_officer' });
+    
+    if (!officer) {
+      return res.status(404).json({ message: 'Gate officer not found' });
+    }
+
+    res.status(200).json({ message: 'Gate Officer deleted successfully' });
+  } catch (error) {
+    console.error('deleteGateOfficer error:', error);
+    res.status(500).json({ message: 'Server error deleting gate officer' });
+  }
+};
+
 module.exports = {
   getDashboardMetrics,
   getComplaints,
   resolveComplaint,
   deleteComplaint,
   processManualRefund,
-  generateCsvReport
+  generateCsvReport,
+  getPublicTempleStatus,
+  getGateOfficers,
+  createGateOfficer,
+  deleteGateOfficer
 };

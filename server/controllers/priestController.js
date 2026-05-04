@@ -333,6 +333,25 @@ const updatePriestByAdmin = async (req, res) => {
   }
 };
 
+const deletePriestByAdmin = async (req, res) => {
+  try {
+    const profile = await PriestProfile.findById(req.params.id);
+    if (!profile) {
+      return res.status(404).json({ message: 'Priest profile not found.' });
+    }
+    
+    if (profile.user) {
+      await User.findByIdAndDelete(profile.user);
+    }
+    
+    await PriestProfile.findByIdAndDelete(profile._id);
+    
+    return res.status(200).json({ message: 'Priest deleted successfully.' });
+  } catch (error) {
+    return res.status(500).json({ message: 'Server error.', error: error.message });
+  }
+};
+
 const getRitualMenu = async (_req, res) => {
   return res.status(200).json({
     message: 'Priest ritual menu fetched successfully.',
@@ -347,7 +366,7 @@ const getRitualMenu = async (_req, res) => {
 
 const getPriestTemplateList = async (_req, res) => {
   try {
-    const priests = await PriestProfile.find({ isActive: true, isVerified: true, upiId: { $ne: '' } })
+    const priests = await PriestProfile.find({ isActive: true, isVerified: true })
       .populate('user', 'name mobile')
       .sort({ displayOrder: 1, createdAt: 1 });
 
@@ -960,6 +979,7 @@ module.exports = {
   createPriestByAdmin,
   getPriestsForAdmin,
   updatePriestByAdmin,
+  deletePriestByAdmin,
   getRitualMenu,
   getPriestTemplateList,
   getPriestSlotStatus,

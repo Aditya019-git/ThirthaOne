@@ -13,11 +13,17 @@ router.get('/metrics', adminController.getDashboardMetrics);
 // 2. Complaints & Penalty
 router.get('/complaints', adminController.getComplaints);
 router.patch('/complaints/:id/resolve', adminController.resolveComplaint);
+router.delete('/complaints/:id', adminController.deleteComplaint);
 
 // 3. Admin Refunds
 router.post('/refund', adminController.processManualRefund);
 
 // 4. Reports Generation
 router.get('/reports/csv', adminController.generateCsvReport);
+
+// 5. Gate Officer Management
+router.get('/gate-officers', adminController.getGateOfficers);
+router.post('/gate-officers', adminController.createGateOfficer);
+router.delete('/gate-officers/:id', adminController.deleteGateOfficer);
 
 module.exports = router;
