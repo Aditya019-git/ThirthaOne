@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import PublicNavbar from '../components/PublicNavbar';
 
 const OM_SYMBOL = '\u0950';
 const TRISHUL_SYMBOL = '\uD83D\uDD31';
@@ -30,25 +31,7 @@ const Home = () => {
 
   return (
     <div style={styles.wrapper}>
-      <nav style={styles.navbar}>
-        <div style={styles.navLogo}>
-          <span style={styles.om}>{OM_SYMBOL}</span>
-          <div>
-            <div style={styles.logoTitle}>TirthOne</div>
-            <div style={styles.logoSub}>SACRED DARSHAN PORTAL</div>
-          </div>
-        </div>
-        <div style={styles.navLinks}>
-          <button style={styles.navLinkBtn} onClick={goToLoginForBooking}>
-            Book Pass
-          </button>
-          <a href="#passes" style={styles.navLink}>My Passes</a>
-          <a href="#about" style={styles.navLink}>About Temple</a>
-          <button style={styles.navBtn} onClick={() => navigate('/login')}>
-            Login / Register
-          </button>
-        </div>
-      </nav>
+      <PublicNavbar />
 
       <section style={styles.hero}>
         <div style={styles.heroBadge}>
@@ -127,41 +110,6 @@ const Home = () => {
 
 const styles = {
   wrapper: { fontFamily: "'Georgia', serif", margin: 0, padding: 0 },
-  navbar: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '14px 40px',
-    backgroundColor: '#3D0A0A',
-    position: 'sticky',
-    top: 0,
-    zIndex: 100
-  },
-  navLogo: { display: 'flex', alignItems: 'center', gap: '10px' },
-  om: { fontSize: '20px', color: '#E07B39', fontWeight: 700 },
-  logoTitle: { fontSize: '20px', fontWeight: '700', color: '#E8C97A', letterSpacing: '2px' },
-  logoSub: { fontSize: '9px', color: '#c8a96e', letterSpacing: '3px' },
-  navLinks: { display: 'flex', alignItems: 'center', gap: '28px' },
-  navLink: { color: '#f0e6d3', textDecoration: 'none', fontSize: '14px', fontFamily: 'Calibri, sans-serif' },
-  navLinkBtn: {
-    color: '#f0e6d3',
-    background: 'transparent',
-    border: 'none',
-    fontSize: '14px',
-    fontFamily: 'Calibri, sans-serif',
-    cursor: 'pointer',
-    padding: 0
-  },
-  navBtn: {
-    padding: '10px 20px',
-    backgroundColor: '#E07B39',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '6px',
-    fontSize: '14px',
-    cursor: 'pointer',
-    fontWeight: '600'
-  },
   hero: {
     backgroundColor: '#6B1010',
     backgroundImage: 'radial-gradient(ellipse at center, #8B1A1A 0%, #4A0808 100%)',

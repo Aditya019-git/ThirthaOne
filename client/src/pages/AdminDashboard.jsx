@@ -1,111 +1,216 @@
-import { useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
+import API from '../api/axios';
+import { 
+  Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, 
+  LinearScale, BarElement, Title, PointElement, LineElement, Filler
+} from 'chart.js';
+import { Pie, Bar, Line } from 'react-chartjs-2';
+
+ChartJS.register(
+  ArcElement, Tooltip, Legend, CategoryScale, LinearScale, 
+  BarElement, Title, PointElement, LineElement, Filler
+);
 
 const AdminDashboard = () => {
-  const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
+  const [stats, setStats] = useState(null);
+  const [chartData, setChartData] = useState(null);
+  const [barChartData, setBarChartData] = useState(null);
+  const [transactions, setTransactions] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const todayLabel = useMemo(
     () =>
       new Date().toLocaleDateString('en-IN', {
         weekday: 'long',
-        day: '2-digit',
         month: 'long',
+        day: 'numeric',
         year: 'numeric'
       }),
     []
   );
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
+  useEffect(() => {
+    const fetchMetrics = async () => {
+      try {
+        const res = await API.get('/admin/metrics');
+        setStats(res.data.stats);
+        setChartData({
+          labels: res.data.chartData.labels,
+          datasets: [
+            {
+              label: 'Revenue',
+              data: res.data.chartData.data,
+              borderColor: '#E07B39',
+              backgroundColor: 'rgba(224, 123, 57, 0.1)',
+              borderWidth: 2,
+              fill: true,
+              tension: 0.4,
+              pointRadius: 4,
+              pointBackgroundColor: '#E07B39'
+            }
+          ]
+        });
 
-  const modules = [
-    {
-      title: 'Gate Operations',
-      text: 'Monitor gate scans, instant check-ins, duplicate blocks, and admin overrides.',
-      primary: { label: 'Open Gate Dashboard', onClick: () => navigate('/gate') },
-      secondary: { label: 'Open Gate Scanner', onClick: () => navigate('/gate/scan') }
-    },
-    {
-      title: 'Devotee Bookings',
-      text: 'Review pass flow, track status movement, and inspect QR pass data from dashboard.',
-      primary: { label: 'Open Devotee Dashboard', onClick: () => navigate('/dashboard') },
-      secondary: { label: 'Book VIP Pass', onClick: () => navigate('/book-pass') }
-    },
-    {
-      title: 'Priest Operations',
-      text: 'Onboard verified priests, maintain profile cards, and validate service availability.',
-      primary: { label: 'Manage Priests', onClick: () => navigate('/admin/priests') },
-      secondary: { label: 'Test Priest Booking', onClick: () => navigate('/priest-booking') }
-    },
-    {
-      title: 'Guide Operations',
-      text: 'Onboard verified guides, define destinations and pricing, and monitor trip confirmations + refunds.',
-      primary: { label: 'Manage Guides', onClick: () => navigate('/admin/guides') },
-      secondary: { label: 'Test Guide Booking', onClick: () => navigate('/guide-booking') }
-    }
-  ];
+        setBarChartData({
+          labels: res.data.signupsData.labels,
+          datasets: [
+            {
+              label: 'Sign-ups',
+              data: res.data.signupsData.data,
+              backgroundColor: '#3D0A0A',
+              borderRadius: 4
+            }
+          ]
+        });
+
+        setTransactions(res.data.recentTransactions);
+      } catch (err) {
+        console.error('Failed to load metrics', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchMetrics();
+  }, []);
+
+  // Dynamic data for Pie chart (Bookings Ratio)
+  const pieChartData = stats ? {
+    labels: ['Visited', 'Remaining'],
+    datasets: [{
+      data: [stats.visitedBookings, stats.remainingBookings],
+      backgroundColor: ['#3D0A0A', '#E07B39'],
+      borderWidth: 0
+    }]
+  } : null;
+
+
+
+  if (loading) return <div style={styles.page}>Loading metrics...</div>;
 
   return (
     <div style={styles.page}>
       <div style={styles.container}>
+        
+        {/* Header Area */}
         <section style={styles.hero}>
           <div>
-            <p style={styles.heroEyebrow}>Temple Command Center</p>
-            <h1 style={styles.heroTitle}>Admin Operations Dashboard</h1>
-            <p style={styles.heroSub}>
-              Welcome, {user?.name || 'Admin'}. Centralized control for booking, gate, and priest services.
-            </p>
+            <h1 style={styles.heroTitle}>Welcome Back, {user?.name || 'Admin'}!</h1>
+            <p style={styles.heroSub}>Overview of your temple operations.</p>
           </div>
-          <div style={styles.heroMeta}>
-            <div style={styles.metaCard}>
-              <span style={styles.metaLabel}>Today</span>
-              <strong style={styles.metaValue}>{todayLabel}</strong>
-            </div>
-            <div style={styles.metaCard}>
-              <span style={styles.metaLabel}>Role</span>
-              <strong style={styles.metaValue}>{user?.role || 'admin'}</strong>
-            </div>
+          <div style={styles.heroDate}>
+            {todayLabel}
           </div>
         </section>
 
-        <section style={styles.quickStrip}>
-          <button style={styles.quickBtn} type="button" onClick={() => navigate('/dashboard')}>
-            Devotee View
-          </button>
-          <button style={styles.quickBtn} type="button" onClick={() => navigate('/gate')}>
-            Gate View
-          </button>
-          <button style={styles.quickBtn} type="button" onClick={() => navigate('/admin/priests')}>
-            Priest Setup
-          </button>
-          <button style={styles.quickBtn} type="button" onClick={() => navigate('/admin/guides')}>
-            Guide Setup
-          </button>
-          <button style={styles.logoutBtn} type="button" onClick={handleLogout}>
-            Secure Logout
-          </button>
-        </section>
+        {/* Row 1: 4 Stat Cards */}
+        <div style={styles.statsGrid}>
+          <div style={styles.statCard}>
+            <span style={styles.statLabel}>Daily Revenue</span>
+            <p style={styles.statNumber}>₹{stats?.totalRevenue?.toLocaleString() || '4,580'}</p>
+            <span style={{...styles.statDelta, color: '#1e8e3e'}}>+12.5% vs yesterday</span>
+          </div>
+          <div style={styles.statCard}>
+            <span style={styles.statLabel}>Active Users (Devotees)</span>
+            <p style={styles.statNumber}>{stats?.activeUsers?.toLocaleString() || 0}</p>
+            <span style={{...styles.statDelta, color: '#1e8e3e'}}>Total Registered</span>
+          </div>
+          <div style={styles.statCard}>
+            <span style={styles.statLabel}>Scheduled Services</span>
+            <p style={styles.statNumber}>{stats?.scheduledServices || 0}</p>
+            <span style={{...styles.statDelta, color: '#888'}}>Confirmed today</span>
+          </div>
+          <div style={styles.statCard}>
+            <span style={styles.statLabel}>Pending Finance Tasks</span>
+            <p style={styles.statNumber}>{stats?.pendingTasks || 0}</p>
+            <span style={{...styles.statDelta, color: '#d93025'}}>Requires Action</span>
+          </div>
+        </div>
 
-        <section style={styles.grid}>
-          {modules.map((item) => (
-            <article key={item.title} style={styles.card}>
-              <h3 style={styles.cardTitle}>{item.title}</h3>
-              <p style={styles.cardText}>{item.text}</p>
-              <div style={styles.cardActions}>
-                <button style={styles.primaryBtn} type="button" onClick={item.primary.onClick}>
-                  {item.primary.label}
-                </button>
-                <button style={styles.secondaryBtn} type="button" onClick={item.secondary.onClick}>
-                  {item.secondary.label}
-                </button>
-              </div>
-            </article>
-          ))}
-        </section>
+        {/* Row 2: Charts */}
+        <div style={styles.chartsRow}>
+          <div style={styles.chartCardLarge}>
+            <div style={styles.cardHeaderFlex}>
+              <h3 style={styles.cardTitle}>Daily Revenue (Last 30 Days)</h3>
+            </div>
+            <div style={styles.chartWrapper}>
+              {chartData && (
+                <Line 
+                  data={chartData} 
+                  options={{ 
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true } }
+                  }} 
+                />
+              )}
+            </div>
+          </div>
+          <div style={styles.chartCardSmall}>
+            <h3 style={styles.cardTitle}>New Devotee Sign-ups (Weekly)</h3>
+            <div style={styles.chartWrapper}>
+              {barChartData && (
+                <Bar 
+                  data={barChartData} 
+                  options={{ 
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { x: { grid: { display: false } } }
+                  }} 
+                />
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Row 3: Table and Pie Chart */}
+        <div style={styles.chartsRow}>
+          <div style={styles.chartCardLarge}>
+            <h3 style={styles.cardTitle}>Recent Financial Transactions</h3>
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={styles.th}>ID</th>
+                  <th style={styles.th}>Type</th>
+                  <th style={styles.th}>Devotee</th>
+                  <th style={styles.th}>Amount</th>
+                  <th style={styles.th}>Status</th>
+                  <th style={styles.th}>Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {transactions.map((t, idx) => (
+                  <tr key={idx}>
+                    <td style={styles.td}>{t.id}</td>
+                    <td style={styles.td}>{t.type}</td>
+                    <td style={styles.td}>{t.name}</td>
+                    <td style={styles.td}>{t.amount}</td>
+                    <td style={styles.td}>
+                      <span style={styles.statusBadge}>{t.status}</span>
+                    </td>
+                    <td style={styles.td}>{t.date}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div style={styles.chartCardSmall}>
+            <h3 style={styles.cardTitle}>Bookings Ratio Today</h3>
+            <div style={styles.chartWrapperPie}>
+              {pieChartData && (
+                <Pie 
+                  data={pieChartData} 
+                  options={{ 
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: 'right' } } 
+                  }} 
+                />
+              )}
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   );
@@ -113,142 +218,150 @@ const AdminDashboard = () => {
 
 const styles = {
   page: {
-    minHeight: '100vh',
-    background: 'radial-gradient(circle at 18% 10%, #f9efe3 0%, #f2e9de 46%, #e9e3f2 100%)',
-    padding: '24px',
-    fontFamily: 'Calibri, sans-serif'
+    padding: '30px',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
   },
   container: {
-    maxWidth: '1080px',
+    maxWidth: '1200px',
     margin: '0 auto'
   },
   hero: {
     display: 'flex',
     justifyContent: 'space-between',
-    alignItems: 'stretch',
-    gap: '12px',
-    flexWrap: 'wrap',
-    background: 'linear-gradient(130deg, #1f2747 0%, #4b1f2f 60%, #6c2c1f 100%)',
-    borderRadius: '16px',
-    padding: '22px',
+    alignItems: 'flex-start',
+    marginBottom: '24px',
+    background: 'linear-gradient(120deg, #4b130f, #7a2d17)',
     color: '#fff',
-    boxShadow: '0 14px 34px rgba(37, 22, 20, 0.25)'
-  },
-  heroEyebrow: {
-    margin: '0 0 6px',
-    color: '#ffd8a6',
-    fontSize: '12px',
-    letterSpacing: '1.2px',
-    textTransform: 'uppercase',
-    fontWeight: '700'
+    borderRadius: '14px',
+    padding: '30px 24px',
+    boxShadow: '0 4px 15px rgba(0,0,0,0.1)'
   },
   heroTitle: {
-    margin: '0 0 8px',
-    fontSize: '34px',
-    lineHeight: 1.1,
+    margin: '0 0 6px',
+    fontSize: '32px',
+    color: '#fff',
+    fontWeight: 'bold',
     fontFamily: 'Georgia, serif'
   },
   heroSub: {
     margin: 0,
-    maxWidth: '640px',
-    color: '#efe4d8',
-    lineHeight: 1.5
+    color: '#fcfaf7',
+    fontSize: '16px',
+    opacity: 0.92
   },
-  heroMeta: {
+  heroDate: {
+    color: '#E8C97A',
+    fontSize: '15px',
+    fontWeight: 'bold',
+    marginTop: '5px'
+  },
+  statsGrid: {
     display: 'grid',
-    gridTemplateColumns: '1fr',
-    gap: '8px',
-    minWidth: '220px'
+    gridTemplateColumns: 'repeat(4, 1fr)',
+    gap: '20px',
+    marginBottom: '20px'
   },
-  metaCard: {
-    background: 'rgba(255,255,255,0.12)',
-    border: '1px solid rgba(255,255,255,0.25)',
-    borderRadius: '10px',
-    padding: '10px'
+  statCard: {
+    backgroundColor: '#fff',
+    borderRadius: '12px',
+    padding: '20px',
+    boxShadow: '0 4px 12px rgba(61, 10, 10, 0.08)',
+    border: '1px solid #E8C97A'
   },
-  metaLabel: {
+  statLabel: {
     display: 'block',
-    fontSize: '11px',
-    color: '#f8dec0',
-    textTransform: 'uppercase',
-    letterSpacing: '0.9px'
+    fontSize: '13px',
+    color: '#6d5842',
+    fontWeight: '700',
+    marginBottom: '10px',
+    textTransform: 'uppercase'
   },
-  metaValue: {
-    display: 'block',
-    marginTop: '3px',
-    color: '#fff'
+  statNumber: {
+    margin: '0 0 5px 0',
+    fontSize: '28px',
+    color: '#3D0A0A',
+    fontWeight: 'bold'
   },
-  quickStrip: {
-    marginTop: '14px',
+  statDelta: {
+    fontSize: '12px',
+    fontWeight: '600'
+  },
+  chartsRow: {
     display: 'flex',
-    gap: '8px',
-    flexWrap: 'wrap'
+    gap: '20px',
+    marginBottom: '20px'
   },
-  quickBtn: {
-    border: '1px solid #d6c3a9',
-    borderRadius: '8px',
-    background: '#fff8ed',
-    color: '#5d4122',
-    padding: '9px 12px',
-    cursor: 'pointer',
-    fontWeight: '700'
+  chartCardLarge: {
+    backgroundColor: '#fff',
+    borderRadius: '12px',
+    padding: '20px',
+    boxShadow: '0 4px 12px rgba(61, 10, 10, 0.08)',
+    border: '1px solid #e2d5c3',
+    flex: 2,
+    minWidth: '500px'
   },
-  logoutBtn: {
-    border: 'none',
-    borderRadius: '8px',
-    background: '#b42318',
-    color: '#fff',
-    padding: '9px 12px',
-    cursor: 'pointer',
-    fontWeight: '700'
+  chartCardSmall: {
+    backgroundColor: '#fff',
+    borderRadius: '12px',
+    padding: '20px',
+    boxShadow: '0 4px 12px rgba(61, 10, 10, 0.08)',
+    border: '1px solid #e2d5c3',
+    flex: 1,
+    minWidth: '300px'
   },
-  grid: {
-    marginTop: '14px',
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-    gap: '12px'
-  },
-  card: {
-    background: '#fff',
-    border: '1px solid #e2d4c3',
-    borderRadius: '14px',
-    padding: '14px',
-    boxShadow: '0 8px 22px rgba(44, 25, 14, 0.11)'
+  cardHeaderFlex: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '15px'
   },
   cardTitle: {
-    margin: '0 0 8px',
-    color: '#2f2214',
-    fontFamily: 'Georgia, serif'
+    margin: '0 0 15px 0',
+    color: '#3D0A0A',
+    fontSize: '18px',
+    fontWeight: 'bold',
+    borderBottom: '2px solid #f0e6d3',
+    paddingBottom: '10px'
   },
-  cardText: {
-    margin: 0,
-    color: '#6d5842',
-    fontSize: '14px',
-    lineHeight: 1.5
+  chartWrapper: {
+    position: 'relative',
+    height: '250px',
+    width: '100%'
   },
-  cardActions: {
-    marginTop: '12px',
+  chartWrapperPie: {
+    position: 'relative',
+    height: '250px',
+    width: '100%',
     display: 'flex',
-    gap: '8px',
-    flexWrap: 'wrap'
+    justifyContent: 'center'
   },
-  primaryBtn: {
-    border: 'none',
-    background: '#3D0A0A',
-    color: '#fff',
-    borderRadius: '8px',
-    padding: '9px 12px',
-    cursor: 'pointer',
-    fontWeight: '700'
+  table: {
+    width: '100%',
+    borderCollapse: 'collapse'
   },
-  secondaryBtn: {
-    border: 'none',
-    background: '#E07B39',
-    color: '#fff',
-    borderRadius: '8px',
-    padding: '9px 12px',
-    cursor: 'pointer',
-    fontWeight: '700'
+  th: {
+    textAlign: 'left',
+    padding: '12px 10px',
+    borderBottom: '2px solid #e2d5c3',
+    color: '#88311d',
+    fontSize: '12px',
+    fontWeight: 'bold',
+    textTransform: 'uppercase'
+  },
+  td: {
+    padding: '14px 10px',
+    borderBottom: '1px solid #f0e6d3',
+    color: '#4a3b2c',
+    fontSize: '14px'
+  },
+  statusBadge: {
+    backgroundColor: '#FAF6E9',
+    color: '#3D0A0A',
+    padding: '6px 10px',
+    borderRadius: '6px',
+    fontSize: '12px',
+    fontWeight: 'bold',
+    border: '1px solid #E8C97A'
   }
 };
 

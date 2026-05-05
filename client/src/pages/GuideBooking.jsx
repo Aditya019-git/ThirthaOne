@@ -1,5 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+  XCircle,
+  CheckCircle,
+  Clock,
+  MapPin,
+  Camera,
+  Star,
+  RefreshCw,
+  Info,
+  Calendar,
+  Languages,
+  MessageSquare
+} from 'lucide-react';
+import ReviewsModal from '../components/ReviewsModal';
 import API from '../api/axios';
 
 const getTodayDate = () => {
@@ -38,9 +52,6 @@ const loadRazorpayScript = () =>
     script.onerror = () => resolve(false);
     document.body.appendChild(script);
   });
-
-import ReviewsModal from '../components/ReviewsModal';
-
 const GuideBooking = () => {
   const navigate = useNavigate();
   const [initLoading, setInitLoading] = useState(true);
@@ -52,6 +63,7 @@ const GuideBooking = () => {
   const [guides, setGuides] = useState([]);
   const [myBookings, setMyBookings] = useState([]);
   const [reviewModalTarget, setReviewModalTarget] = useState(null);
+  const [fullViewGuide, setFullViewGuide] = useState(null);
 
   const [bookingDate, setBookingDate] = useState(getTodayDate());
   const [selectedPlaces, setSelectedPlaces] = useState([]);
@@ -415,32 +427,57 @@ const GuideBooking = () => {
               {guides.map((g) => {
                 const selected = selectedGuideProfileId === g.id;
                 return (
-                  <button
+                  <article
                     key={g.id}
-                    type="button"
+                    style={{
+                      ...styles.guideCard,
+                      ...(selected ? styles.guideCardActive : {})
+                    }}
                     onClick={() => setSelectedGuideProfileId(g.id)}
-                    style={{ ...styles.guideCard, ...(selected ? styles.guideCardActive : {}) }}
                   >
-                    <div style={styles.guideTop}>
+                    <div style={styles.cardHead}>
                       <div style={styles.avatar}>
                         {g.photoUrl ? (
-                          <img src={g.photoUrl} alt={g.name} style={styles.avatarImg} />
+                          <img
+                            src={g.photoUrl}
+                            alt={g.name}
+                            style={styles.avatarImg}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedGuideProfileId(g.id);
+                              setFullViewGuide(g);
+                            }}
+                          />
                         ) : (
                           <div style={styles.avatarFallback}>{(g.name || 'G').slice(0, 1).toUpperCase()}</div>
                         )}
                       </div>
-                      <div style={styles.guideText}>
-                        <div style={styles.guideName}>{g.name}</div>
-                        <div style={styles.guideMeta}>
-                          <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#ff9800' }}>{Number(g.rating?.avg || 0).toFixed(1)}★</span>
-                          <button type="button" onClick={(e)=>{ e.stopPropagation(); setReviewModalTarget({ id: g.id, name: g.name }); }} style={{ backgroundColor: 'transparent', border: '1px solid #dcc9ad', borderRadius: '4px', fontSize: '11px', cursor: 'pointer', padding: '2px 6px' }}>Reviews</button>
-                          <span style={styles.smallChip}>{g.yearsExperience || 0} yrs exp</span>
+                      <div style={styles.cardHeadInfo}>
+                        <h3 style={styles.guideName}>{g.name}</h3>
+                        <div style={styles.badgeRow}>
+                          <span style={styles.badgeVerified}>Verified</span>
+                          <span style={styles.badgeRating}>{Number(g.rating?.avg || 0).toFixed(1)}★</span>
                         </div>
+                        <p style={styles.metaStrong}>{g.yearsExperience || 0} yrs exp</p>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setReviewModalTarget({ id: g.id, name: g.name });
+                          }}
+                          style={styles.reviewBtnInline}
+                        >
+                          Read Reviews
+                        </button>
                       </div>
-                      <div style={styles.pickMark}>{selected ? 'Chosen' : 'Choose'}</div>
                     </div>
-                    {g.bio ? <div style={styles.guideBio}>{g.bio}</div> : <div style={styles.guideBioMuted}>No bio provided.</div>}
-                  </button>
+
+                    <div style={styles.detailList}>
+                      <p style={styles.meta}><strong>Age:</strong> {g.age ?? '-'}</p>
+                      <p style={styles.meta}><strong>Email:</strong> {g.email || '-'}</p>
+                      <p style={styles.meta}><strong>Mobile:</strong> {g.mobile || '-'}</p>
+                    </div>
+                  </article>
                 );
               })}
             </div>
@@ -554,6 +591,55 @@ const GuideBooking = () => {
         </section>
       </div>
       {reviewModalTarget && <ReviewsModal type="guide" targetId={reviewModalTarget.id} targetName={reviewModalTarget.name} onClose={() => setReviewModalTarget(null)} />}
+
+      {fullViewGuide && (
+        <div style={styles.modalOverlay} onClick={() => setFullViewGuide(null)}>
+          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+            <button type="button" style={styles.modalClose} onClick={() => setFullViewGuide(null)}>×</button>
+            <div style={styles.modalHeader}>
+              <img
+                src={fullViewGuide.photoUrl || 'https://placehold.co/400x400/f3e8d5/6d4c2f?text=Guide'}
+                alt={fullViewGuide.name}
+                style={styles.modalPhoto}
+              />
+              <div style={styles.modalHeaderInfo}>
+                <h2 style={styles.modalTitle}>{fullViewGuide.name}</h2>
+                <div style={styles.modalBadges}>
+                  <span style={styles.badgeVerified}>Verified Guide</span>
+                  <span style={styles.badgeRating}>{Number(fullViewGuide.rating?.avg || 0).toFixed(1)}★</span>
+                  <span style={styles.badgeSecondary}>{fullViewGuide.yearsExperience || 0} yrs exp</span>
+                </div>
+              </div>
+            </div>
+            
+            <div style={styles.modalBody}>
+              <h3 style={styles.modalSectionTitle}>About</h3>
+              <p style={styles.modalBio}>{fullViewGuide.bio || 'No biography available.'}</p>
+              
+              <h3 style={styles.modalSectionTitle}>Details</h3>
+              <div style={styles.modalDetailsGrid}>
+                <div><strong>Age:</strong> {fullViewGuide.age ?? '-'}</div>
+                <div><strong>Mobile:</strong> {fullViewGuide.mobile || '-'}</div>
+                <div><strong>Email:</strong> {fullViewGuide.email || '-'}</div>
+              </div>
+            </div>
+
+            <div style={styles.modalFooter}>
+              <button
+                type="button"
+                style={styles.modalActionBtn}
+                onClick={() => {
+                  setSelectedGuideProfileId(fullViewGuide.id);
+                  setFullViewGuide(null);
+                  window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+                }}
+              >
+                Confirm Selection
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -702,38 +788,70 @@ const styles = {
   guidesGrid: {
     marginTop: '10px',
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-    gap: '10px'
+    gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+    gap: '20px'
   },
   guideCard: {
-    border: '1px solid #ead8bb',
-    borderRadius: '16px',
     background: '#fff',
-    padding: '12px',
+    border: '1px solid #e8d9c4',
+    borderRadius: '12px',
+    padding: '16px',
+    boxShadow: '0 4px 12px rgba(61, 10, 10, 0.06)',
     cursor: 'pointer',
-    textAlign: 'left',
-    boxShadow: '0 12px 26px rgba(44, 25, 14, 0.08)'
+    transition: 'all 0.2s',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px'
   },
-  guideCardActive: { borderColor: '#3D0A0A', boxShadow: '0 12px 26px rgba(61, 10, 10, 0.18)' },
-  guideTop: { display: 'grid', gridTemplateColumns: '50px 1fr auto', gap: '10px', alignItems: 'center' },
-  guideText: { display: 'flex', flexDirection: 'column', gap: '6px' },
-  guideName: { fontWeight: '900', color: '#2f2214' },
-  guideMeta: { display: 'flex', gap: '6px', flexWrap: 'wrap' },
-  smallChip: {
-    border: '1px solid #ead8bb',
+  guideCardActive: {
+    border: '2px solid #7a4520',
+    boxShadow: '0 8px 24px rgba(87, 47, 20, 0.18)',
+    transform: 'translateY(-2px)'
+  },
+  cardHead: {
+    display: 'flex',
+    gap: '12px',
+    alignItems: 'center'
+  },
+  cardHeadInfo: {
+    minWidth: 0,
+    flex: 1
+  },
+  avatar: {
+    width: '104px',
+    height: '104px',
+    borderRadius: '8px',
+    border: '1px solid #ddccb5',
     background: '#fffaf0',
-    padding: '4px 8px',
-    borderRadius: '999px',
-    fontSize: '11px',
-    fontWeight: '800',
-    color: '#5d4122'
+    cursor: 'pointer',
+    transition: 'transform 0.2s',
+    overflow: 'hidden'
   },
-  pickMark: { fontWeight: '900', color: '#3D0A0A' },
-  guideBio: { marginTop: '10px', color: '#4b3b2a', lineHeight: 1.45 },
-  guideBioMuted: { marginTop: '10px', color: '#6d5842', fontStyle: 'italic' },
-  avatar: { width: '50px', height: '50px', borderRadius: '14px', overflow: 'hidden', border: '1px solid #ead8bb', background: '#fffaf0' },
   avatarImg: { width: '100%', height: '100%', objectFit: 'cover', display: 'block' },
   avatarFallback: { width: '100%', height: '100%', display: 'grid', placeItems: 'center', fontWeight: '900', color: '#3D0A0A', fontFamily: 'Georgia, serif' },
+  guideName: { margin: '0 0 6px', color: '#2f1f11', fontSize: '18px', fontWeight: '700' },
+  badgeRow: { display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '6px' },
+  badgeVerified: { border: '1px solid #b8d0f0', background: '#eef5ff', color: '#1f4e8c', borderRadius: '999px', padding: '2px 8px', fontSize: '11px', fontWeight: '700' },
+  badgeRating: { border: '1px solid #f6e3c5', background: '#fff8ea', color: '#a46b14', borderRadius: '999px', padding: '2px 8px', fontSize: '11px', fontWeight: '700' },
+  badgeSecondary: { border: '1px solid #dcc9ad', background: '#fffaf1', color: '#6d5337', borderRadius: '999px', padding: '2px 8px', fontSize: '11px', fontWeight: '700' },
+  metaStrong: { margin: '0 0 6px', color: '#6b4e31', fontSize: '12px', fontWeight: '700' },
+  reviewBtnInline: { background: 'transparent', border: '1px solid #dcc9ad', borderRadius: '4px', fontSize: '11px', cursor: 'pointer', padding: '3px 8px', color: '#4a3827' },
+  detailList: { marginTop: '4px', borderTop: '1px dashed #e7d8c3', paddingTop: '12px', display: 'grid', gap: '6px', fontSize: '13px' },
+  meta: { margin: 0, color: '#5a4634', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+  modalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(20, 10, 5, 0.7)', backdropFilter: 'blur(4px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' },
+  modalContent: { position: 'relative', background: '#fffaf2', width: '100%', maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto', borderRadius: '16px', boxShadow: '0 20px 40px rgba(0,0,0,0.3)', border: '1px solid #e8d9c4' },
+  modalClose: { position: 'absolute', top: '16px', right: '16px', background: 'transparent', border: 'none', fontSize: '28px', lineHeight: 1, color: '#4a3827', cursor: 'pointer', zIndex: 2 },
+  modalHeader: { padding: '24px', borderBottom: '1px solid #e8d9c4', background: 'linear-gradient(180deg, #fefdfb 0%, #fffaf2 100%)', display: 'flex', gap: '20px', alignItems: 'center', flexWrap: 'wrap' },
+  modalPhoto: { width: '120px', height: '120px', borderRadius: '12px', objectFit: 'cover', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', border: '2px solid #fff' },
+  modalHeaderInfo: { flex: '1 1 200px' },
+  modalTitle: { margin: '0 0 10px', fontSize: '24px', color: '#3b2a1a' },
+  modalBadges: { display: 'flex', gap: '8px', flexWrap: 'wrap' },
+  modalBody: { padding: '24px' },
+  modalSectionTitle: { margin: '0 0 12px', fontSize: '16px', color: '#7a4520', borderBottom: '2px solid #f0e6d3', paddingBottom: '6px' },
+  modalBio: { margin: '0 0 24px', lineHeight: 1.6, color: '#4a3827', fontSize: '15px' },
+  modalDetailsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', color: '#4a3827', fontSize: '14px', background: '#fff', padding: '16px', borderRadius: '10px', border: '1px solid #e8d9c4' },
+  modalFooter: { padding: '20px 24px', borderTop: '1px solid #e8d9c4', background: '#fff' },
+  modalActionBtn: { width: '100%', padding: '14px', background: '#5a190f', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer' },
   formActions: { marginTop: '12px', display: 'flex', justifyContent: 'flex-end' },
   primaryBtn: {
     border: 'none',

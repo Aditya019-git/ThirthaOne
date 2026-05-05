@@ -26,9 +26,6 @@ const GateDashboard = () => {
           <button style={styles.primaryBtn} type="button" onClick={() => navigate('/gate/scan')}>
             Scan Pass
           </button>
-          <button style={styles.secondaryBtn} type="button" onClick={() => navigate('/dashboard')}>
-            View Booking Status
-          </button>
           <button style={styles.dangerBtn} type="button" onClick={handleLogout}>
             Logout
           </button>
@@ -46,72 +43,80 @@ const styles = {
     fontFamily: 'Calibri, sans-serif'
   },
   hero: {
-    maxWidth: '980px',
-    margin: '0 auto',
-    background: 'linear-gradient(120deg, #22354a, #1f6f6d)',
+    background: 'linear-gradient(120deg, #4b130f, #7a2d17)',
     color: '#fff',
     borderRadius: '14px',
-    padding: '20px'
+    padding: '30px 24px',
+    boxShadow: '0 4px 15px rgba(0,0,0,0.1)'
   },
   title: {
     margin: '0 0 6px',
-    fontSize: '30px',
-    fontFamily: 'Georgia, serif'
+    fontSize: '32px',
   },
   sub: {
     margin: 0,
-    opacity: 0.92
+    opacity: 0.92,
+    fontSize: '16px'
   },
   card: {
     maxWidth: '980px',
-    margin: '16px auto 0',
+    margin: '24px auto 0',
     background: '#fff',
-    border: '1px solid #d7dfe8',
+    border: 'none',
+    borderTop: '4px solid #E8C97A',
     borderRadius: '12px',
-    padding: '14px',
-    boxShadow: '0 6px 18px rgba(30, 45, 60, 0.08)'
+    padding: '24px',
+    boxShadow: '0 8px 24px rgba(61, 10, 10, 0.08)'
   },
   cardTitle: {
     marginTop: 0,
     marginBottom: '8px',
-    color: '#1f3347'
+    color: '#3D0A0A',
+    fontSize: '22px'
   },
   cardText: {
     marginTop: 0,
-    color: '#4f6478',
-    fontSize: '14px'
+    marginBottom: '24px',
+    color: '#555',
+    fontSize: '15px'
   },
   actionRow: {
     display: 'flex',
-    gap: '8px',
+    gap: '12px',
     flexWrap: 'wrap'
   },
   primaryBtn: {
     border: 'none',
-    background: '#1f4e8c',
-    color: '#fff',
+    background: '#E8C97A',
+    color: '#3D0A0A',
     borderRadius: '8px',
-    padding: '10px 12px',
+    padding: '12px 20px',
     cursor: 'pointer',
-    fontWeight: '700'
+    fontWeight: '800',
+    fontSize: '15px',
+    transition: 'transform 0.2s'
   },
   secondaryBtn: {
-    border: 'none',
-    background: '#15803d',
-    color: '#fff',
+    border: '1px solid #E8C97A',
+    background: '#fcfaf7',
+    color: '#3D0A0A',
     borderRadius: '8px',
-    padding: '10px 12px',
+    padding: '12px 20px',
     cursor: 'pointer',
-    fontWeight: '700'
+    fontWeight: '800',
+    fontSize: '15px',
+    transition: 'background-color 0.2s'
   },
   dangerBtn: {
-    border: 'none',
-    background: '#b42318',
-    color: '#fff',
+    border: '1px solid #b42318',
+    background: 'transparent',
+    color: '#b42318',
     borderRadius: '8px',
-    padding: '10px 12px',
+    padding: '12px 20px',
     cursor: 'pointer',
-    fontWeight: '700'
+    fontWeight: '800',
+    fontSize: '15px',
+    transition: 'background-color 0.2s'
   }
 };
 

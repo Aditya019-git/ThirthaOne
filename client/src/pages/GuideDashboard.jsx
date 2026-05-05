@@ -111,6 +111,20 @@ const GuideDashboard = () => {
     navigate('/login');
   };
 
+  const handleRaiseComplaint = async () => {
+    const issue = window.prompt("Describe your issue or complaint with the Temple services:");
+    if (!issue) return;
+    try {
+      await API.post('/complaints', {
+        targetType: 'Temple',
+        issueDescription: issue
+      });
+      alert('Complaint submitted successfully. Operations will review it.');
+    } catch (err) {
+      alert('Failed to submit complaint.');
+    }
+  };
+
   return (
     <div style={styles.page}>
       <div style={styles.container}>
@@ -124,6 +138,9 @@ const GuideDashboard = () => {
         <section style={styles.actions}>
           <button style={styles.primaryBtn} type="button" onClick={loadQueue}>
             Refresh Requests
+          </button>
+          <button style={styles.secondaryBtn} type="button" onClick={handleRaiseComplaint}>
+            Raise Complaint
           </button>
           <button style={styles.dangerBtn} type="button" onClick={handleLogout}>
             Logout
@@ -273,14 +290,23 @@ const styles = {
   },
   container: { maxWidth: '1100px', margin: '0 auto' },
   hero: {
-    background: 'linear-gradient(130deg, #1f2747 0%, #4b1f2f 60%, #6c2c1f 100%)',
-    borderRadius: '16px',
-    padding: '18px',
+    background: 'linear-gradient(120deg, #4b130f, #7a2d17)',
     color: '#fff',
-    boxShadow: '0 14px 34px rgba(37, 22, 20, 0.25)'
+    borderRadius: '14px',
+    padding: '30px 24px',
+    boxShadow: '0 4px 15px rgba(0,0,0,0.1)'
   },
-  title: { margin: 0, fontFamily: 'Georgia, serif', fontSize: '34px' },
-  sub: { margin: '8px 0 0', color: '#efe4d8', lineHeight: 1.45 },
+  title: {
+    margin: '0 0 6px',
+    fontSize: '32px',
+    fontFamily: 'Georgia, serif'
+  },
+  sub: {
+    margin: 0,
+    opacity: 0.92,
+    fontSize: '16px',
+    color: '#fcfaf7'
+  },
   actions: { marginTop: '12px', display: 'flex', gap: '10px', flexWrap: 'wrap' },
   primaryBtn: {
     border: 'none',

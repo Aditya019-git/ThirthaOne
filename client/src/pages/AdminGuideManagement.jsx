@@ -12,7 +12,13 @@ const emptyForm = {
   yearsExperience: '',
   photoDataUrl: '',
   bio: '',
-  destinations: []
+  destinations: [],
+  upiId: '',
+  upiName: '',
+  bankAccountName: '',
+  bankName: '',
+  bankAccountNumber: '',
+  bankIfsc: ''
 };
 
 const toDataUrl = (file) =>
@@ -41,12 +47,17 @@ const validateForm = (form) => {
   const yearsExperience = Number(form.yearsExperience || 0);
   const bio = String(form.bio || '').trim();
 
+  const upiId = String(form.upiId || '').trim();
+
   if (name.length < 3) errors.name = 'Name must be at least 3 characters.';
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = 'Enter a valid email address.';
   if (!/^\d{10}$/.test(mobile)) errors.mobile = 'Mobile must be exactly 10 digits.';
   if (age !== null && (!Number.isFinite(age) || age < 18 || age > 90)) errors.age = 'Age must be between 18 and 90.';
   if (!Number.isFinite(yearsExperience) || yearsExperience < 0 || yearsExperience > 70) {
     errors.yearsExperience = 'Experience must be between 0 and 70 years.';
+  }
+  if (!upiId || upiId.length < 6 || upiId.length > 80 || !upiId.includes('@')) {
+    errors.upiId = 'UPI ID is required (example: name@bank).';
   }
   if (bio.length > 500) errors.bio = 'Bio must be 500 characters or less.';
 
@@ -68,6 +79,7 @@ const AdminGuideManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
   const [verifiedFilter, setVerifiedFilter] = useState('all');
+  const [editId, setEditId] = useState(null);
 
   const loadGuides = async () => {
     setLoading(true);
@@ -159,7 +171,7 @@ const AdminGuideManagement = () => {
     }
   };
 
-  const handleCreateGuide = async (e) => {
+  const handleSaveGuide = async (e) => {
     e.preventDefault();
     setError('');
     setMessage('');
@@ -181,19 +193,57 @@ const AdminGuideManagement = () => {
         age: form.age === '' ? null : Number(form.age),
         yearsExperience: Number(form.yearsExperience || 0),
         bio: String(form.bio || '').trim(),
-        destinations: Array.isArray(form.destinations) ? form.destinations : []
+        destinations: Array.isArray(form.destinations) ? form.destinations : [],
+        upiId: String(form.upiId || '').trim(),
+        upiName: String(form.upiName || '').trim(),
+        bankDetails: {
+          accountName: String(form.bankAccountName || '').trim(),
+          bankName: String(form.bankName || '').trim(),
+          accountNumber: String(form.bankAccountNumber || '').trim(),
+          ifsc: String(form.bankIfsc || '').trim().toUpperCase()
+        }
       };
 
-      const res = await API.post('/guide/admin/guides', payload);
-      setMessage(res.data?.message || 'Guide added.');
+      if (editId) {
+        const res = await API.patch(`/guide/admin/guides/${editId}`, payload);
+        setMessage(res.data?.message || 'Guide updated successfully.');
+      } else {
+        const res = await API.post('/guide/admin/guides', payload);
+        setMessage(res.data?.message || 'Guide added successfully.');
+      }
+
       setForm(emptyForm);
       setFormErrors({});
+      setEditId(null);
       await loadGuides();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
-      setError(getApiErrorMessage(err, 'Unable to add guide.'));
+      setError(getApiErrorMessage(err, editId ? 'Unable to update guide.' : 'Unable to add guide.'));
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleEditClick = (item) => {
+    setEditId(item.id);
+    setForm({
+      name: item.name || '',
+      email: item.email || '',
+      mobile: item.mobile || '',
+      age: item.age ?? '',
+      yearsExperience: item.yearsExperience || '',
+      photoDataUrl: item.photoUrl || '',
+      bio: item.bio || '',
+      destinations: Array.isArray(item.destinations) ? item.destinations : [],
+      upiId: item.upiId || '',
+      upiName: item.upiName || '',
+      bankAccountName: item.bankDetails?.accountName || '',
+      bankName: item.bankDetails?.bankName || '',
+      bankAccountNumber: item.bankDetails?.accountNumber || '',
+      bankIfsc: item.bankDetails?.ifsc || ''
+    });
+    setFormErrors({});
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const patchGuide = async (id, payload, successMsg) => {
@@ -210,6 +260,27 @@ const AdminGuideManagement = () => {
 
   const toggleActive = (item) => patchGuide(item.id, { isActive: !item.isActive }, `Guide ${item.name} updated.`);
   const toggleVerified = (item) => patchGuide(item.id, { isVerified: !item.isVerified }, `Guide ${item.name} updated.`);
+
+  const handleDeleteGuide = async () => {
+    if (!editId) return;
+    if (!window.confirm('Are you sure you want to completely delete this guide? This action cannot be undone.')) return;
+    
+    setError('');
+    setMessage('');
+    setSaving(true);
+    try {
+      await API.delete(`/guide/admin/guides/${editId}`);
+      setMessage('Guide deleted successfully.');
+      setForm(emptyForm);
+      setFormErrors({});
+      setEditId(null);
+      await loadGuides();
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Unable to delete guide.'));
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const runRefundEngine = async () => {
     setError('');
@@ -251,9 +322,6 @@ const AdminGuideManagement = () => {
             </p>
           </div>
           <div style={styles.headerActions}>
-            <button type="button" style={styles.backBtn} onClick={() => navigate('/admin')}>
-              Back
-            </button>
             <button type="button" style={styles.backBtn} onClick={runRefundEngine} disabled={refundRunning}>
               {refundRunning ? 'Running Refunds…' : 'Run Refund Engine'}
             </button>
@@ -279,12 +347,12 @@ const AdminGuideManagement = () => {
         {message && <div style={styles.successBox}>{message}</div>}
 
         <section style={styles.card}>
-          <h2 style={styles.cardTitle}>Add Verified Guide</h2>
+          <h2 style={styles.cardTitle}>{editId ? 'Edit Guide Profile' : 'Add Verified Guide'}</h2>
           <p style={styles.cardHint}>
             Better word than “Trips”: choose <strong>Destinations Covered</strong>. Leave blank to allow all destinations.
           </p>
 
-          <form onSubmit={handleCreateGuide} style={styles.form}>
+          <form onSubmit={handleSaveGuide} style={styles.form}>
             <div style={styles.formRow}>
               <div style={styles.field}>
                 <label style={styles.label}>Name</label>
@@ -317,8 +385,73 @@ const AdminGuideManagement = () => {
                   style={{ ...styles.input, ...(formErrors.mobile ? styles.inputError : {}) }}
                   placeholder="10-digit mobile"
                 />
-                {formErrors.mobile && <div style={styles.fieldError}>{formErrors.mobile}</div>}
+                {formErrors.mobile && <p style={styles.fieldError}>{formErrors.mobile}</p>}
               </div>
+              <div style={styles.field}>
+                <label style={styles.label}>UPI ID</label>
+                <input
+                  style={{ ...styles.input, ...(formErrors.upiId ? styles.inputError : {}) }}
+                  placeholder="UPI ID (example@bank)"
+                  value={form.upiId}
+                  onChange={(e) => setFormField('upiId', e.target.value)}
+                  required
+                />
+                {formErrors.upiId && <p style={styles.fieldError}>{formErrors.upiId}</p>}
+              </div>
+              <div style={styles.field}>
+                <label style={styles.label}>UPI Payee Name</label>
+                <input
+                  style={styles.input}
+                  placeholder="UPI Payee Name (optional)"
+                  value={form.upiName}
+                  onChange={(e) => setFormField('upiName', e.target.value)}
+                />
+              </div>
+            </div>
+            
+            <div style={styles.formRow}>
+              <div style={styles.field}>
+                <label style={styles.label}>Bank Name</label>
+                <input
+                  style={styles.input}
+                  placeholder="Bank Name (optional)"
+                  value={form.bankName}
+                  onChange={(e) => setFormField('bankName', e.target.value)}
+                />
+              </div>
+              <div style={styles.field}>
+                <label style={styles.label}>Account Name</label>
+                <input
+                  style={styles.input}
+                  placeholder="Bank Account Name (optional)"
+                  value={form.bankAccountName}
+                  onChange={(e) => setFormField('bankAccountName', e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div style={styles.formRow}>
+              <div style={styles.field}>
+                <label style={styles.label}>Account Number</label>
+                <input
+                  style={styles.input}
+                  placeholder="Bank Account Number (optional)"
+                  value={form.bankAccountNumber}
+                  onChange={(e) => setFormField('bankAccountNumber', e.target.value)}
+                />
+              </div>
+              <div style={styles.field}>
+                <label style={styles.label}>IFSC</label>
+                <input
+                  style={styles.input}
+                  placeholder="IFSC (optional)"
+                  value={form.bankIfsc}
+                  onChange={(e) => setFormField('bankIfsc', e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div style={styles.formRow}>
               <div style={styles.field}>
                 <label style={styles.label}>Age (optional)</label>
                 <input
@@ -407,8 +540,31 @@ const AdminGuideManagement = () => {
 
             <div style={styles.formActions}>
               <button type="submit" style={styles.primaryBtn} disabled={saving}>
-                {saving ? 'Adding...' : 'Add Guide'}
+                {saving ? 'Saving...' : editId ? 'Update Guide' : 'Add Guide'}
               </button>
+              {editId && (
+                <>
+                  <button
+                    type="button"
+                    style={{ ...styles.primaryBtn, background: '#6d5842', marginLeft: '10px' }}
+                    onClick={() => {
+                      setEditId(null);
+                      setForm(emptyForm);
+                      setFormErrors({});
+                    }}
+                  >
+                    Cancel Edit
+                  </button>
+                  <button
+                    type="button"
+                    style={{ ...styles.primaryBtn, background: '#a11f1f', color: '#fff', marginLeft: '10px' }}
+                    onClick={handleDeleteGuide}
+                    disabled={saving}
+                  >
+                    Delete Guide
+                  </button>
+                </>
+              )}
             </div>
           </form>
         </section>
@@ -445,16 +601,13 @@ const AdminGuideManagement = () => {
             <div style={styles.grid}>
               {filteredGuides.map((g) => (
                 <article key={g.id} style={styles.guideCard}>
-                  <div style={styles.guideBanner}>
-                    {g.photoUrl ? (
-                      <img src={g.photoUrl} alt={g.name} style={styles.bannerImg} />
-                    ) : (
-                      <div style={styles.bannerFallback}>
-                        {(g.name || 'G').slice(0, 1).toUpperCase()}
-                      </div>
-                    )}
-                    <div style={styles.bannerOverlay} />
-                    <div style={styles.bannerText}>
+                  <div style={styles.cardHead}>
+                    <img
+                      src={g.photoUrl || 'https://placehold.co/240x240/ece2d4/7f6342?text=Guide'}
+                      alt={g.name}
+                      style={styles.photo}
+                    />
+                    <div style={styles.cardHeadInfo}>
                       <h3 style={styles.guideName}>{g.name}</h3>
                       <div style={styles.guideMeta}>
                         <span style={styles.badge}>{g.isActive ? 'Active' : 'Inactive'}</span>
@@ -504,6 +657,9 @@ const AdminGuideManagement = () => {
                     )}
 
                     <div style={styles.cardActions}>
+                      <button type="button" style={{...styles.secondaryBtn, gridColumn: '1 / -1'}} onClick={() => handleEditClick(g)}>
+                        Edit
+                      </button>
                       <button type="button" style={styles.secondaryBtn} onClick={() => toggleVerified(g)}>
                         {g.isVerified ? 'Unverify' : 'Verify'}
                       </button>
@@ -525,7 +681,7 @@ const AdminGuideManagement = () => {
 const styles = {
   page: {
     minHeight: '100vh',
-    background: 'radial-gradient(circle at 18% 10%, #f9efe3 0%, #f2e9de 46%, #e9e3f2 100%)',
+    background: '#FAF6E9',
     padding: '22px',
     fontFamily: 'Calibri, sans-serif'
   },
@@ -539,11 +695,11 @@ const styles = {
     alignItems: 'flex-start',
     gap: '12px',
     flexWrap: 'wrap',
-    background: 'linear-gradient(130deg, #1f2747 0%, #4b1f2f 60%, #6c2c1f 100%)',
+    background: 'linear-gradient(120deg, #4b130f, #7a2d17)',
     borderRadius: '16px',
     padding: '18px',
     color: '#fff',
-    boxShadow: '0 14px 34px rgba(37, 22, 20, 0.25)'
+    boxShadow: '0 4px 15px rgba(0,0,0,0.1)'
   },
   headerActions: {
     display: 'flex',
@@ -579,10 +735,10 @@ const styles = {
   },
   statCard: {
     background: '#fff',
-    border: '1px solid #e2d4c3',
-    borderRadius: '14px',
-    padding: '12px',
-    boxShadow: '0 10px 20px rgba(44, 25, 14, 0.08)'
+    border: '1px solid #E8C97A',
+    borderRadius: '12px',
+    padding: '20px',
+    boxShadow: '0 4px 12px rgba(61, 10, 10, 0.08)'
   },
   statLabel: {
     display: 'block',
@@ -616,12 +772,12 @@ const styles = {
     padding: '10px'
   },
   card: {
-    marginTop: '12px',
+    marginTop: '20px',
     background: '#fff',
-    border: '1px solid #e2d4c3',
-    borderRadius: '16px',
-    padding: '14px',
-    boxShadow: '0 10px 24px rgba(44, 25, 14, 0.1)'
+    border: '1px solid #e2d5c3',
+    borderRadius: '12px',
+    padding: '24px',
+    boxShadow: '0 4px 12px rgba(61, 10, 10, 0.08)'
   },
   cardTitle: {
     margin: 0,
@@ -740,8 +896,8 @@ const styles = {
   },
   primaryBtn: {
     border: 'none',
-    background: '#3D0A0A',
-    color: '#fff',
+    background: '#E8C97A',
+    color: '#3D0A0A',
     borderRadius: '10px',
     padding: '10px 14px',
     cursor: 'pointer',
@@ -749,7 +905,7 @@ const styles = {
   },
   secondaryBtn: {
     border: 'none',
-    background: '#E07B39',
+    background: '#3D0A0A',
     color: '#fff',
     borderRadius: '10px',
     padding: '10px 14px',
@@ -781,54 +937,40 @@ const styles = {
   grid: {
     marginTop: '12px',
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-    gap: '12px'
+    gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+    gap: '20px'
   },
   guideCard: {
-    border: '1px solid #ead8bb',
+    border: '1px solid #E8C97A',
     borderRadius: '16px',
-    overflow: 'hidden',
-    background: '#fffaf0',
-    boxShadow: '0 12px 26px rgba(44, 25, 14, 0.09)'
+    padding: '16px',
+    background: '#fff',
+    boxShadow: '0 4px 15px rgba(61, 10, 10, 0.08)',
+    display: 'flex',
+    flexDirection: 'column'
   },
-  guideBanner: {
-    position: 'relative',
-    height: '150px',
-    background: 'linear-gradient(120deg, #3D0A0A 0%, #E07B39 100%)'
+  cardHead: {
+    display: 'flex',
+    gap: '10px',
+    alignItems: 'center'
   },
-  bannerImg: {
-    position: 'absolute',
-    inset: 0,
-    width: '100%',
-    height: '100%',
-    objectFit: 'cover'
+  cardHeadInfo: {
+    minWidth: 0,
+    flex: 1
   },
-  bannerFallback: {
-    position: 'absolute',
-    inset: 0,
-    display: 'grid',
-    placeItems: 'center',
-    color: '#fff',
-    fontSize: '46px',
-    fontWeight: '900',
-    fontFamily: 'Georgia, serif'
-  },
-  bannerOverlay: {
-    position: 'absolute',
-    inset: 0,
-    background: 'linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.55) 100%)'
-  },
-  bannerText: {
-    position: 'absolute',
-    left: '12px',
-    right: '12px',
-    bottom: '10px',
-    color: '#fff'
+  photo: {
+    width: '104px',
+    height: '104px',
+    borderRadius: '8px',
+    objectFit: 'cover',
+    objectPosition: 'center top',
+    border: '1px solid #ddccb5'
   },
   guideName: {
-    margin: 0,
-    fontFamily: 'Georgia, serif',
-    letterSpacing: '0.3px'
+    margin: '0 0 4px',
+    color: '#2f1f11',
+    fontSize: '18px',
+    fontFamily: 'Georgia, serif'
   },
   guideMeta: {
     marginTop: '6px',
@@ -881,10 +1023,10 @@ const styles = {
     lineHeight: 1.45
   },
   cardActions: {
-    display: 'flex',
-    gap: '8px',
-    justifyContent: 'flex-end',
-    flexWrap: 'wrap'
+    marginTop: 'auto',
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: '8px'
   }
 };
 

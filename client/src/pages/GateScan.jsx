@@ -379,6 +379,7 @@ const GateScan = () => {
         reasonText.includes('play() request was interrupted because the media was removed from the document')
       ) {
         event.preventDefault();
+        event.stopPropagation();
       }
     };
 
@@ -669,22 +670,22 @@ const styles = {
   },
   title: {
     margin: 0,
-    color: '#2b1846',
+    color: '#3D0A0A',
     fontFamily: 'Georgia, serif',
     fontSize: '32px'
   },
   subtitle: {
     margin: '4px 0 0',
-    color: '#5f5581',
+    color: '#6d5842',
     fontSize: '14px'
   },
   backBtn: {
-    border: '1px solid #cbc3f4',
-    background: '#f4f0ff',
+    border: '1px solid #E8C97A',
+    background: '#FAF6E9',
     borderRadius: '8px',
     padding: '8px 12px',
     cursor: 'pointer',
-    color: '#3b2f69',
+    color: '#3D0A0A',
     fontWeight: '700'
   },
   modeTabs: {
@@ -694,29 +695,30 @@ const styles = {
     marginBottom: '12px'
   },
   modeTab: {
-    border: '1px solid #d9d0f8',
+    border: '1px solid transparent',
     borderRadius: '10px',
     padding: '10px',
     background: '#fff',
-    color: '#4c3f73',
+    color: '#6d5842',
     cursor: 'pointer',
     fontWeight: '700'
   },
   modeTabActive: {
-    border: '1px solid #5b3fd1',
+    border: '1px solid #E8C97A',
     borderRadius: '10px',
     padding: '10px',
-    background: '#f1edff',
-    color: '#2e1a73',
+    background: '#FAF6E9',
+    color: '#3D0A0A',
     cursor: 'pointer',
     fontWeight: '700'
   },
   scanSection: {
-    border: '1px solid #e3dbff',
-    background: '#faf8ff',
+    border: '1px solid #e2d5c3',
+    background: '#fff',
     borderRadius: '12px',
     padding: '12px',
-    marginBottom: '10px'
+    marginBottom: '10px',
+    boxShadow: '0 4px 15px rgba(61, 10, 10, 0.05)'
   },
   scanSectionHeader: {
     display: 'flex',
@@ -744,16 +746,16 @@ const styles = {
     background: '#94a3b8'
   },
   statusText: {
-    color: '#4e4276',
+    color: '#3D0A0A',
     fontSize: '13px',
     fontWeight: '700'
   },
   autoChip: {
-    border: '1px solid #d6cbff',
+    border: '1px solid #E8C97A',
     borderRadius: '999px',
     padding: '4px 10px',
-    background: '#f2eefe',
-    color: '#4a2db7',
+    background: '#FAF6E9',
+    color: '#3D0A0A',
     fontSize: '12px',
     fontWeight: '700'
   },
@@ -764,8 +766,8 @@ const styles = {
   },
   openCameraBtn: {
     border: 'none',
-    background: '#1f4e8c',
-    color: '#fff',
+    background: '#E8C97A',
+    color: '#3D0A0A',
     borderRadius: '8px',
     padding: '7px 12px',
     cursor: 'pointer',
@@ -780,7 +782,7 @@ const styles = {
     borderRadius: '14px',
     overflow: 'hidden',
     background: '#0f172a',
-    border: '2px solid #3b2f69'
+    border: '2px solid #E8C97A'
   },
   readerShellSuccess: {
     border: '2px solid #16a34a',
@@ -821,7 +823,7 @@ const styles = {
   },
   lastScanned: {
     marginTop: '8px',
-    color: '#22577a',
+    color: '#3D0A0A',
     fontSize: '12px',
     textAlign: 'center',
     fontWeight: '700'
@@ -853,8 +855,8 @@ const styles = {
     marginRight: 'auto'
   },
   manualSection: {
-    border: '1px solid #eadbc5',
-    background: '#fffaf2',
+    border: '1px solid #e2d5c3',
+    background: '#fff',
     borderRadius: '12px',
     padding: '12px',
     marginBottom: '10px'
@@ -862,13 +864,13 @@ const styles = {
   label: {
     display: 'block',
     marginBottom: '6px',
-    color: '#6d5638',
+    color: '#6d5842',
     fontSize: '12px',
     fontWeight: '700'
   },
   input: {
     width: '100%',
-    border: '1px solid #d3c4ad',
+    border: '1px solid #e2d5c3',
     borderRadius: '10px',
     padding: '11px',
     boxSizing: 'border-box',
@@ -888,9 +890,9 @@ const styles = {
   },
   retryBtn: {
     marginLeft: '10px',
-    border: 'none',
-    background: '#6d28d9',
-    color: '#fff',
+    border: '1px solid #E8C97A',
+    background: '#FAF6E9',
+    color: '#3D0A0A',
     borderRadius: '7px',
     padding: '6px 10px',
     cursor: 'pointer',
@@ -915,27 +917,27 @@ const styles = {
   },
   resultCard: {
     marginTop: '12px',
-    border: '1px solid #dfd6ff',
-    background: '#f9f7ff',
+    border: '1px solid #e2d5c3',
+    background: '#fff',
     borderRadius: '12px',
     padding: '12px'
   },
   overridePanel: {
     marginTop: '10px',
-    border: '1px solid #d6c7ff',
-    background: '#f3efff',
+    border: '1px solid #E8C97A',
+    background: '#FAF6E9',
     borderRadius: '10px',
     padding: '10px'
   },
   overrideTitle: {
     margin: '0 0 8px',
-    color: '#3a2b71',
+    color: '#3D0A0A',
     fontWeight: '700'
   },
   overrideInput: {
     width: '100%',
     minHeight: '70px',
-    border: '1px solid #c9b6ff',
+    border: '1px solid #e2d5c3',
     borderRadius: '8px',
     padding: '8px',
     boxSizing: 'border-box',
@@ -950,7 +952,7 @@ const styles = {
   },
   overridePrimaryBtn: {
     border: 'none',
-    background: '#5b21b6',
+    background: '#3D0A0A',
     color: '#fff',
     borderRadius: '8px',
     padding: '9px 12px',
@@ -958,9 +960,9 @@ const styles = {
     fontWeight: '700'
   },
   overrideSecondaryBtn: {
-    border: '1px solid #8a7bc6',
-    background: '#ece8ff',
-    color: '#3d3470',
+    border: '1px solid #E8C97A',
+    background: '#fff',
+    color: '#3D0A0A',
     borderRadius: '8px',
     padding: '9px 12px',
     cursor: 'pointer',
@@ -968,10 +970,11 @@ const styles = {
   },
   activityCard: {
     marginTop: '12px',
-    border: '1px solid #dde6f0',
-    background: '#f8fbff',
+    border: '1px solid #e2d5c3',
+    background: '#fff',
     borderRadius: '12px',
-    padding: '12px'
+    padding: '12px',
+    boxShadow: '0 2px 8px rgba(61, 10, 10, 0.05)'
   },
   activityHeader: {
     display: 'flex',
@@ -983,12 +986,13 @@ const styles = {
   },
   activityTitle: {
     margin: 0,
-    color: '#21374f'
+    color: '#3D0A0A',
+    fontFamily: 'Georgia, serif'
   },
   refreshBtn: {
-    border: '1px solid #b8cce2',
-    background: '#eef6ff',
-    color: '#1f4e8c',
+    border: '1px solid #E8C97A',
+    background: '#FAF6E9',
+    color: '#3D0A0A',
     borderRadius: '8px',
     padding: '7px 10px',
     cursor: 'pointer',

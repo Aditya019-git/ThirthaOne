@@ -75,6 +75,7 @@ const AdminPriestManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
   const [verifiedFilter, setVerifiedFilter] = useState('all');
+  const [editId, setEditId] = useState(null);
 
   const loadPriests = async () => {
     setLoading(true);
@@ -151,7 +152,7 @@ const AdminPriestManagement = () => {
     }
   };
 
-  const handleCreatePriest = async (e) => {
+  const handleSavePriest = async (e) => {
     e.preventDefault();
     setError('');
     setMessage('');
@@ -182,16 +183,46 @@ const AdminPriestManagement = () => {
           ifsc: String(form.bankIfsc || '').trim().toUpperCase()
         }
       };
-      const res = await API.post('/priest/admin/priests', payload);
-      setMessage(res.data?.message || 'Priest added.');
+
+      if (editId) {
+        const res = await API.patch(`/priest/admin/priests/${editId}`, payload);
+        setMessage(res.data?.message || 'Priest updated successfully.');
+      } else {
+        const res = await API.post('/priest/admin/priests', payload);
+        setMessage(res.data?.message || 'Priest added successfully.');
+      }
+
       setForm(emptyForm);
       setFormErrors({});
+      setEditId(null);
       await loadPriests();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
-      setError(getApiErrorMessage(err, 'Unable to add priest.'));
+      setError(getApiErrorMessage(err, editId ? 'Unable to update priest.' : 'Unable to add priest.'));
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleEditClick = (item) => {
+    setEditId(item.id);
+    setForm({
+      name: item.name || '',
+      email: item.email || '',
+      mobile: item.mobile || '',
+      age: item.age || '',
+      yearsExperience: item.yearsExperience || '',
+      upiId: item.upiId || '',
+      upiName: item.upiName || '',
+      bankAccountName: item.bankDetails?.accountName || '',
+      bankName: item.bankDetails?.bankName || '',
+      bankAccountNumber: item.bankDetails?.accountNumber || '',
+      bankIfsc: item.bankDetails?.ifsc || '',
+      photoDataUrl: item.photoUrl || '',
+      bio: item.bio || ''
+    });
+    setFormErrors({});
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const toggleActive = async (item) => {
@@ -222,15 +253,34 @@ const AdminPriestManagement = () => {
     }
   };
 
+  const handleDeletePriest = async () => {
+    if (!editId) return;
+    if (!window.confirm('Are you sure you want to completely delete this priest? This action cannot be undone.')) return;
+    
+    setError('');
+    setMessage('');
+    setSaving(true);
+    try {
+      await API.delete(`/priest/admin/priests/${editId}`);
+      setMessage('Priest deleted successfully.');
+      setForm(emptyForm);
+      setFormErrors({});
+      setEditId(null);
+      await loadPriests();
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Unable to delete priest.'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div style={styles.page}>
       <div style={styles.container}>
-        <div style={styles.topBar}>
-          <h1 style={styles.title}>Verified Priest Management</h1>
-          <button style={styles.backBtn} onClick={() => navigate('/admin')} type="button">
-            Back
-          </button>
-        </div>
+        <section style={styles.hero}>
+          <h1 style={styles.heroTitle}>Verified Priest Management</h1>
+          <p style={styles.heroSub}>Manage and onboard verified temple priests.</p>
+        </section>
 
         <section style={styles.statsRow}>
           <div style={styles.statCard}>
@@ -251,12 +301,12 @@ const AdminPriestManagement = () => {
         {message && <div style={styles.successBox}>{message}</div>}
 
         <section style={styles.section}>
-          <h2 style={styles.sectionTitle}>Add Verified Priest</h2>
+          <h2 style={styles.sectionTitle}>{editId ? 'Edit Priest Profile' : 'Add Verified Priest'}</h2>
           <p style={styles.metaNote}>
             Priest self-registration is blocked. Only admin can onboard verified priests.
           </p>
 
-          <form onSubmit={handleCreatePriest}>
+          <form onSubmit={handleSavePriest}>
             <div style={styles.grid}>
               <div>
                 <input
@@ -397,8 +447,31 @@ const AdminPriestManagement = () => {
             {formErrors.bio && <p style={styles.fieldError}>{formErrors.bio}</p>}
 
             <button style={styles.submitBtn} type="submit" disabled={saving || uploadingPhoto}>
-              {saving ? 'Saving...' : 'Add Priest'}
+              {saving ? 'Saving...' : editId ? 'Update Priest' : 'Add Priest'}
             </button>
+            {editId && (
+              <>
+                <button
+                  type="button"
+                  style={{ ...styles.submitBtn, background: '#6d5842', marginLeft: '10px' }}
+                  onClick={() => {
+                    setEditId(null);
+                    setForm(emptyForm);
+                    setFormErrors({});
+                  }}
+                >
+                  Cancel Edit
+                </button>
+                <button
+                  type="button"
+                  style={{ ...styles.submitBtn, background: '#a11f1f', marginLeft: '10px' }}
+                  onClick={handleDeletePriest}
+                  disabled={saving}
+                >
+                  Delete Priest
+                </button>
+              </>
+            )}
           </form>
         </section>
 
@@ -464,6 +537,9 @@ const AdminPriestManagement = () => {
                   </div>
 
                   <div style={styles.actionRow}>
+                    <button style={{...styles.verifyBtn, gridColumn: '1 / -1'}} type="button" onClick={() => handleEditClick(item)}>
+                      Edit
+                    </button>
                     <button style={styles.verifyBtn} type="button" onClick={() => toggleVerified(item)}>
                       {item.isVerified ? 'Unverify' : 'Verify'}
                     </button>
@@ -491,17 +567,24 @@ const styles = {
     maxWidth: '1100px',
     margin: '0 auto'
   },
-  topBar: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: '10px',
-    flexWrap: 'wrap'
+  hero: {
+    background: 'linear-gradient(120deg, #4b130f, #7a2d17)',
+    color: '#fff',
+    borderRadius: '14px',
+    padding: '30px 24px',
+    boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
+    marginBottom: '20px'
   },
-  title: {
-    margin: 0,
-    color: '#2f1d11',
+  heroTitle: {
+    margin: '0 0 6px',
+    fontSize: '32px',
     fontFamily: 'Georgia, serif'
+  },
+  heroSub: {
+    margin: 0,
+    opacity: 0.92,
+    fontSize: '16px',
+    color: '#fcfaf7'
   },
   backBtn: {
     border: '1px solid #d9c4a3',
@@ -518,50 +601,59 @@ const styles = {
     gap: '10px'
   },
   statCard: {
-    border: '1px solid #e3d5c1',
-    borderRadius: '10px',
+    border: '1px solid #E8C97A',
+    borderRadius: '12px',
     background: '#fff',
-    padding: '12px'
+    padding: '20px',
+    boxShadow: '0 4px 12px rgba(61, 10, 10, 0.08)'
   },
   statLabel: {
-    fontSize: '12px',
-    color: '#7c6548',
+    fontSize: '13px',
+    color: '#6d5842',
+    fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: '0.5px'
   },
   statValue: {
-    marginTop: '6px',
-    fontSize: '24px',
-    color: '#2f1d11',
-    fontWeight: '700'
+    marginTop: '8px',
+    fontSize: '28px',
+    color: '#3D0A0A',
+    fontWeight: 'bold'
   },
   section: {
-    marginTop: '14px',
+    marginTop: '20px',
     background: '#fff',
-    border: '1px solid #e8d9c4',
+    border: '1px solid #e2d5c3',
     borderRadius: '12px',
-    padding: '14px'
+    padding: '24px',
+    boxShadow: '0 4px 12px rgba(61, 10, 10, 0.08)'
   },
   sectionTitle: {
     marginTop: 0,
-    color: '#3b2a1a'
+    color: '#3D0A0A',
+    fontSize: '18px',
+    borderBottom: '2px solid #f0e6d3',
+    paddingBottom: '10px',
+    marginBottom: '15px'
   },
   metaNote: {
-    margin: '0 0 10px',
-    color: '#6f5a42',
-    fontSize: '13px'
+    margin: '0 0 15px',
+    color: '#6d5842',
+    fontSize: '14px'
   },
   grid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-    gap: '10px'
+    gap: '15px'
   },
   input: {
     width: '100%',
     boxSizing: 'border-box',
-    border: '1px solid #d6c6ad',
+    border: '1px solid #c8a96e',
     borderRadius: '8px',
-    padding: '10px'
+    padding: '12px',
+    fontFamily: 'inherit',
+    outlineColor: '#3D0A0A'
   },
   inputError: {
     borderColor: '#d24343',
@@ -576,13 +668,13 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     justifyContent: 'space-between',
-    border: '1px dashed #c9b194',
+    border: '1px dashed #E8C97A',
     borderRadius: '8px',
     padding: '10px',
     minHeight: '44px'
   },
   uploadTitle: {
-    color: '#71593e',
+    color: '#6d5842',
     fontSize: '12px',
     marginBottom: '6px'
   },
@@ -591,9 +683,9 @@ const styles = {
   },
   uploadBtn: {
     display: 'inline-block',
-    border: '1px solid #d4bea1',
-    background: '#fff8ee',
-    color: '#5e4324',
+    border: '1px solid #E8C97A',
+    background: '#fcfaf7',
+    color: '#3D0A0A',
     borderRadius: '7px',
     padding: '7px 9px',
     fontSize: '12px',
@@ -624,24 +716,27 @@ const styles = {
     cursor: 'pointer'
   },
   textArea: {
-    marginTop: '10px',
+    marginTop: '15px',
     width: '100%',
     boxSizing: 'border-box',
-    border: '1px solid #d6c6ad',
+    border: '1px solid #c8a96e',
     borderRadius: '8px',
-    padding: '10px',
+    padding: '12px',
     minHeight: '80px',
-    resize: 'vertical'
+    resize: 'vertical',
+    fontFamily: 'inherit',
+    outlineColor: '#3D0A0A'
   },
   submitBtn: {
-    marginTop: '10px',
+    marginTop: '15px',
     border: 'none',
-    background: '#4a1c13',
+    background: '#3D0A0A',
     color: '#fff',
     borderRadius: '8px',
-    padding: '10px 14px',
+    padding: '12px 18px',
     cursor: 'pointer',
-    fontWeight: '700'
+    fontWeight: '700',
+    fontSize: '14px'
   },
   filterRow: {
     display: 'grid',
@@ -651,17 +746,21 @@ const styles = {
   filterInput: {
     width: '100%',
     boxSizing: 'border-box',
-    border: '1px solid #d7c8b0',
+    border: '1px solid #c8a96e',
     borderRadius: '8px',
-    padding: '10px'
+    padding: '12px',
+    fontFamily: 'inherit',
+    outlineColor: '#3D0A0A'
   },
   filterSelect: {
     width: '100%',
     boxSizing: 'border-box',
-    border: '1px solid #d7c8b0',
+    border: '1px solid #c8a96e',
     borderRadius: '8px',
-    padding: '10px',
-    background: '#fff'
+    padding: '12px',
+    background: '#fff',
+    fontFamily: 'inherit',
+    outlineColor: '#3D0A0A'
   },
   resultMeta: {
     margin: '10px 0 0',
@@ -695,18 +794,18 @@ const styles = {
   },
   priestGrid: {
     marginTop: '10px',
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: '10px'
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+    gap: '20px'
   },
   priestCard: {
-    flex: '0 1 340px',
-    width: '100%',
-    border: '1px solid #e2d3bd',
+    border: '1px solid #E8C97A',
     borderRadius: '12px',
-    background: 'linear-gradient(180deg, #fffdfa 0%, #fff8ef 100%)',
-    padding: '11px',
-    boxShadow: '0 8px 20px rgba(71, 41, 20, 0.08)'
+    background: '#fff',
+    padding: '16px',
+    boxShadow: '0 4px 12px rgba(61, 10, 10, 0.08)',
+    display: 'flex',
+    flexDirection: 'column'
   },
   cardHead: {
     display: 'flex',
@@ -788,26 +887,26 @@ const styles = {
     fontSize: '13px'
   },
   actionRow: {
-    marginTop: '8px',
-    display: 'flex',
-    gap: '8px',
-    flexWrap: 'wrap'
+    marginTop: 'auto',
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: '8px'
   },
   toggleBtn: {
     border: 'none',
     borderRadius: '8px',
-    background: '#7a2d17',
+    background: '#3D0A0A',
     color: '#fff',
-    padding: '8px 11px',
+    padding: '10px 14px',
     cursor: 'pointer',
     fontWeight: '700'
   },
   verifyBtn: {
-    border: '1px solid #ccb99e',
+    border: '1px solid #E8C97A',
     borderRadius: '8px',
-    background: '#f4eee2',
-    color: '#5d4428',
-    padding: '8px 11px',
+    background: '#fcfaf7',
+    color: '#3D0A0A',
+    padding: '10px 14px',
     cursor: 'pointer',
     fontWeight: '700'
   }

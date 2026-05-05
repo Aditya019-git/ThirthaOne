@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import ReviewsModal from '../components/ReviewsModal';
 import API from '../api/axios';
 
 const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
@@ -27,8 +28,6 @@ const loadRazorpayScript = () =>
     document.body.appendChild(script);
   });
 
-import ReviewsModal from '../components/ReviewsModal';
-
 const PriestBooking = () => {
   const navigate = useNavigate();
   const [services, setServices] = useState([]);
@@ -51,6 +50,7 @@ const PriestBooking = () => {
   const [latestPayment, setLatestPayment] = useState(null);
 
   const [reviewModalTarget, setReviewModalTarget] = useState(null);
+  const [fullViewPriest, setFullViewPriest] = useState(null);
 
   const [vipEligible, setVipEligible] = useState(false);
   const [vipEligibilityMessage, setVipEligibilityMessage] = useState('');
@@ -336,32 +336,56 @@ const PriestBooking = () => {
                 <div style={styles.infoBox}>No active priest with payment details available yet. Ask admin to add priests.</div>
               ) : (
                 <div style={styles.priestGrid}>
-                  {priests.map((priest) => (
-                    <button
-                      key={priest.id}
-                      type="button"
-                      onClick={() => setSelectedPriestId(priest.id)}
-                      style={{
-                        ...styles.priestCard,
-                        ...(selectedPriestId === priest.id ? styles.priestCardActive : {})
-                      }}
-                    >
-                      <img
-                        src={priest.photoUrl || 'https://placehold.co/240x200/f3e8d5/6d4c2f?text=Priest'}
-                        alt={priest.name}
-                        style={styles.priestPhoto}
-                      />
-                      <div style={styles.priestName}>{priest.name}</div>
-                      <div style={styles.priestBadgeRow}>
-                        <span style={styles.priestBadge}>Age {priest.age}</span>
-                        <div style={{display: 'flex', gap: '8px', alignItems: 'center'}}>
-                          <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#ff9800' }}>{Number(priest.rating?.avg || 0).toFixed(1)}★</span>
-                          <button type="button" onClick={(e)=>{ e.stopPropagation(); setReviewModalTarget({ id: priest.id, name: priest.name }); }} style={{ backgroundColor: 'transparent', border: '1px solid #dcc9ad', borderRadius: '4px', fontSize: '11px', cursor: 'pointer', padding: '2px 6px' }}>Reviews</button>
+                  {priests.map((priest) => {
+                    const isSelected = selectedPriestId === priest.id;
+                    return (
+                      <article
+                        key={priest.id}
+                        style={{
+                          ...styles.priestCard,
+                          ...(isSelected ? styles.priestCardActive : {})
+                        }}
+                        onClick={() => setSelectedPriestId(priest.id)}
+                      >
+                        <div style={styles.cardHead}>
+                          <img
+                            src={priest.photoUrl || 'https://placehold.co/240x200/f3e8d5/6d4c2f?text=Priest'}
+                            alt={priest.name}
+                            style={styles.photo}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedPriestId(priest.id);
+                              setFullViewPriest(priest);
+                            }}
+                          />
+                          <div style={styles.cardHeadInfo}>
+                            <h3 style={styles.priestName}>{priest.name}</h3>
+                            <div style={styles.badgeRow}>
+                              <span style={styles.badgeVerified}>Verified</span>
+                              <span style={styles.badgeRating}>{Number(priest.rating?.avg || 0).toFixed(1)}★</span>
+                            </div>
+                            <p style={styles.metaStrong}>{priest.yearsExperience || 0} yrs exp</p>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setReviewModalTarget({ id: priest.id, name: priest.name });
+                              }}
+                              style={styles.reviewBtnInline}
+                            >
+                              Read Reviews
+                            </button>
+                          </div>
                         </div>
-                        <span style={styles.priestBadge}>{priest.yearsExperience || 0} yrs exp</span>
-                      </div>
-                    </button>
-                  ))}
+
+                        <div style={styles.detailList}>
+                          <p style={styles.meta}><strong>Age:</strong> {priest.age}</p>
+                          <p style={styles.meta}><strong>Email:</strong> {priest.email || '-'}</p>
+                          <p style={styles.meta}><strong>Mobile:</strong> {priest.mobile || '-'}</p>
+                        </div>
+                      </article>
+                    );
+                  })}
                 </div>
               )}
             </section>
@@ -509,6 +533,55 @@ const PriestBooking = () => {
         )}
       </div>
       {reviewModalTarget && <ReviewsModal type="priest" targetId={reviewModalTarget.id} targetName={reviewModalTarget.name} onClose={() => setReviewModalTarget(null)} />}
+
+      {fullViewPriest && (
+        <div style={styles.modalOverlay} onClick={() => setFullViewPriest(null)}>
+          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+            <button type="button" style={styles.modalClose} onClick={() => setFullViewPriest(null)}>×</button>
+            <div style={styles.modalHeader}>
+              <img
+                src={fullViewPriest.photoUrl || 'https://placehold.co/400x400/f3e8d5/6d4c2f?text=Priest'}
+                alt={fullViewPriest.name}
+                style={styles.modalPhoto}
+              />
+              <div style={styles.modalHeaderInfo}>
+                <h2 style={styles.modalTitle}>{fullViewPriest.name}</h2>
+                <div style={styles.modalBadges}>
+                  <span style={styles.badgeVerified}>Verified Priest</span>
+                  <span style={styles.badgeRating}>{Number(fullViewPriest.rating?.avg || 0).toFixed(1)}★</span>
+                  <span style={styles.badgeSecondary}>{fullViewPriest.yearsExperience || 0} yrs exp</span>
+                </div>
+              </div>
+            </div>
+            
+            <div style={styles.modalBody}>
+              <h3 style={styles.modalSectionTitle}>About</h3>
+              <p style={styles.modalBio}>{fullViewPriest.bio || 'No biography available.'}</p>
+              
+              <h3 style={styles.modalSectionTitle}>Details</h3>
+              <div style={styles.modalDetailsGrid}>
+                <div><strong>Age:</strong> {fullViewPriest.age}</div>
+                <div><strong>Mobile:</strong> {fullViewPriest.mobile || '-'}</div>
+                <div><strong>Email:</strong> {fullViewPriest.email || '-'}</div>
+              </div>
+            </div>
+
+            <div style={styles.modalFooter}>
+              <button
+                type="button"
+                style={styles.modalActionBtn}
+                onClick={() => {
+                  setSelectedPriestId(fullViewPriest.id);
+                  setFullViewPriest(null);
+                  window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+                }}
+              >
+                Confirm Selection
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -623,51 +696,224 @@ const styles = {
     flexWrap: 'wrap'
   },
   priestGrid: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: '10px'
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+    gap: '20px'
   },
   priestCard: {
-    flex: '0 1 280px',
-    width: '100%',
-    border: '1px solid #e2d3bd',
-    background: 'linear-gradient(180deg, #fffdfa 0%, #fff8ed 100%)',
+    background: '#fff',
+    border: '1px solid #e8d9c4',
     borderRadius: '12px',
-    padding: '10px',
-    textAlign: 'left',
+    padding: '16px',
+    boxShadow: '0 4px 12px rgba(61, 10, 10, 0.06)',
     cursor: 'pointer',
-    boxShadow: '0 8px 18px rgba(73, 45, 25, 0.09)'
+    transition: 'all 0.2s',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px'
   },
   priestCardActive: {
     border: '2px solid #7a4520',
-    boxShadow: '0 10px 24px rgba(87, 47, 20, 0.23)'
+    boxShadow: '0 8px 24px rgba(87, 47, 20, 0.18)',
+    transform: 'translateY(-2px)'
   },
-  priestPhoto: {
-    width: '100%',
-    height: '172px',
+  cardHead: {
+    display: 'flex',
+    gap: '12px',
+    alignItems: 'center'
+  },
+  cardHeadInfo: {
+    minWidth: 0,
+    flex: 1
+  },
+  photo: {
+    width: '104px',
+    height: '104px',
+    borderRadius: '8px',
     objectFit: 'cover',
     objectPosition: 'center top',
-    borderRadius: '10px'
+    border: '1px solid #ddccb5',
+    cursor: 'pointer',
+    transition: 'transform 0.2s'
   },
   priestName: {
-    marginTop: '9px',
+    margin: '0 0 6px',
     color: '#2f1f11',
+    fontSize: '18px',
     fontWeight: '700'
   },
-  priestBadgeRow: {
-    marginTop: '8px',
+  badgeRow: {
     display: 'flex',
     gap: '6px',
-    flexWrap: 'wrap'
+    flexWrap: 'wrap',
+    marginBottom: '6px'
   },
-  priestBadge: {
+  badgeVerified: {
+    border: '1px solid #b8d0f0',
+    background: '#eef5ff',
+    color: '#1f4e8c',
+    borderRadius: '999px',
+    padding: '2px 8px',
+    fontSize: '11px',
+    fontWeight: '700'
+  },
+  badgeRating: {
+    border: '1px solid #f6e3c5',
+    background: '#fff8ea',
+    color: '#a46b14',
+    borderRadius: '999px',
+    padding: '2px 8px',
+    fontSize: '11px',
+    fontWeight: '700'
+  },
+  badgeSecondary: {
     border: '1px solid #dcc9ad',
     background: '#fffaf1',
     color: '#6d5337',
     borderRadius: '999px',
+    padding: '2px 8px',
     fontSize: '11px',
-    padding: '3px 8px',
     fontWeight: '700'
+  },
+  metaStrong: {
+    margin: '0 0 6px',
+    color: '#6b4e31',
+    fontSize: '12px',
+    fontWeight: '700'
+  },
+  reviewBtnInline: {
+    background: 'transparent',
+    border: '1px solid #dcc9ad',
+    borderRadius: '4px',
+    fontSize: '11px',
+    cursor: 'pointer',
+    padding: '3px 8px',
+    color: '#4a3827'
+  },
+  detailList: {
+    marginTop: '4px',
+    borderTop: '1px dashed #e7d8c3',
+    paddingTop: '12px',
+    display: 'grid',
+    gap: '6px',
+    fontSize: '13px'
+  },
+  meta: {
+    margin: 0,
+    color: '#5a4634',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis'
+  },
+  modalOverlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    background: 'rgba(20, 10, 5, 0.7)',
+    backdropFilter: 'blur(4px)',
+    zIndex: 9999,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '20px'
+  },
+  modalContent: {
+    position: 'relative',
+    background: '#fffaf2',
+    width: '100%',
+    maxWidth: '500px',
+    maxHeight: '90vh',
+    overflowY: 'auto',
+    borderRadius: '16px',
+    boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
+    border: '1px solid #e8d9c4'
+  },
+  modalClose: {
+    position: 'absolute',
+    top: '16px',
+    right: '16px',
+    background: 'transparent',
+    border: 'none',
+    fontSize: '28px',
+    lineHeight: 1,
+    color: '#4a3827',
+    cursor: 'pointer',
+    zIndex: 2
+  },
+  modalHeader: {
+    padding: '24px',
+    borderBottom: '1px solid #e8d9c4',
+    background: 'linear-gradient(180deg, #fefdfb 0%, #fffaf2 100%)',
+    display: 'flex',
+    gap: '20px',
+    alignItems: 'center',
+    flexWrap: 'wrap'
+  },
+  modalPhoto: {
+    width: '120px',
+    height: '120px',
+    borderRadius: '12px',
+    objectFit: 'cover',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+    border: '2px solid #fff'
+  },
+  modalHeaderInfo: {
+    flex: '1 1 200px'
+  },
+  modalTitle: {
+    margin: '0 0 10px',
+    fontSize: '24px',
+    color: '#3b2a1a'
+  },
+  modalBadges: {
+    display: 'flex',
+    gap: '8px',
+    flexWrap: 'wrap'
+  },
+  modalBody: {
+    padding: '24px'
+  },
+  modalSectionTitle: {
+    margin: '0 0 12px',
+    fontSize: '16px',
+    color: '#7a4520',
+    borderBottom: '2px solid #f0e6d3',
+    paddingBottom: '6px'
+  },
+  modalBio: {
+    margin: '0 0 24px',
+    lineHeight: 1.6,
+    color: '#4a3827',
+    fontSize: '15px'
+  },
+  modalDetailsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+    gap: '12px',
+    color: '#4a3827',
+    fontSize: '14px',
+    background: '#fff',
+    padding: '16px',
+    borderRadius: '10px',
+    border: '1px solid #e8d9c4'
+  },
+  modalFooter: {
+    padding: '20px 24px',
+    borderTop: '1px solid #e8d9c4',
+    background: '#fff'
+  },
+  modalActionBtn: {
+    width: '100%',
+    padding: '14px',
+    background: '#5a190f',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '8px',
+    fontSize: '16px',
+    fontWeight: 'bold',
+    cursor: 'pointer'
   },
   ritualList: {
     display: 'grid',

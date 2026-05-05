@@ -109,6 +109,20 @@ const PriestDashboard = () => {
     navigate('/login');
   };
 
+  const handleRaiseComplaint = async () => {
+    const issue = window.prompt("Describe your issue or complaint with the Temple services:");
+    if (!issue) return;
+    try {
+      await API.post('/complaints', {
+        targetType: 'Temple',
+        issueDescription: issue
+      });
+      alert('Complaint submitted successfully. Operations will review it.');
+    } catch (err) {
+      alert('Failed to submit complaint.');
+    }
+  };
+
   return (
     <div style={styles.page}>
       <div style={styles.container}>
@@ -123,8 +137,8 @@ const PriestDashboard = () => {
           <button style={styles.primaryBtn} type="button" onClick={loadQueue}>
             Refresh Queue
           </button>
-          <button style={styles.secondaryBtn} type="button" onClick={() => navigate('/dashboard')}>
-            Back to Dashboard
+          <button style={styles.secondaryBtn} type="button" onClick={handleRaiseComplaint}>
+            Raise Complaint
           </button>
           <button style={styles.dangerBtn} type="button" onClick={handleLogout}>
             Logout
@@ -299,16 +313,23 @@ const styles = {
     margin: '0 auto'
   },
   hero: {
-    background: 'linear-gradient(120deg, #3b1d09, #6f3615)',
+    background: 'linear-gradient(120deg, #4b130f, #7a2d17)',
     color: '#fff',
     borderRadius: '14px',
-    padding: '18px'
+    padding: '30px 24px',
+    boxShadow: '0 4px 15px rgba(0,0,0,0.1)'
   },
   title: {
     margin: '0 0 6px',
+    fontSize: '32px',
     fontFamily: 'Georgia, serif'
   },
-  sub: { margin: 0, opacity: 0.94 },
+  sub: {
+    margin: 0,
+    opacity: 0.92,
+    fontSize: '16px',
+    color: '#fcfaf7'
+  },
   actions: {
     marginTop: '12px',
     display: 'flex',
